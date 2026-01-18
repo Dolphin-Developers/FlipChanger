@@ -1,0 +1,44 @@
+# Flipper Zero specific
+*.fap
+*.fap.temp
+*.elf
+*.map
+*.log
+
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Compiled binaries
+*.bin
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+
+# Documentation builds
+docs/_build/
+site/
