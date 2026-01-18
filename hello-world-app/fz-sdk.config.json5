@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "FlipChanger Hello World",
+    "type": "js",
+    "id": "flipchanger-hello"
+  },
+  "build": {
+    "minify": false,
+    "sourceMaps": true
+  },
+  "deploy": {
+    "autoDeploy": true,
+    "usbTimeout": 5000
+  }
+}

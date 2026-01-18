@@ -1,0 +1,22 @@
+{
+  "name": "flipchanger-hello-world",
+  "version": "1.0.0",
+  "description": "Hello World test app for Flipper Zero - FlipChanger learning project",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "fz-sdk start",
+    "build": "fz-sdk build",
+    "watch": "fz-sdk watch"
+  },
+  "keywords": [
+    "flipper-zero",
+    "hello-world",
+    "test"
+  ],
+  "author": "Gilbert Roberts",
+  "license": "MIT",
+  "devDependencies": {
+    "@flipperdevices/flipperzero-js-sdk": "^1.0.0"
+  },
+  "dependencies": {}
+}
