@@ -409,8 +409,13 @@ bool flipchanger_save_data(FlipChangerApp* app) {
         return false;
     }
     
+    // Note: Allow saving even if !running (needed for shutdown save)
+    
     // Open file for writing
     File* file = storage_file_alloc(app->storage);
+    if(!file) {
+        return false;
+    }
     
     // Create directory if needed
     storage_common_mkdir(app->storage, "/ext/apps/Tools");
@@ -508,11 +513,19 @@ bool flipchanger_save_data(FlipChangerApp* app) {
     // Write JSON footer
     storage_file_write(file, (const uint8_t*)"]}", 2);
     
-    storage_file_close(file);
+    bool result = true;
+    
+    if(!storage_file_close(file)) {
+        result = false;
+    }
+    
     storage_file_free(file);
     
-    app->dirty = false;
-    return true;
+    if(result) {
+        app->dirty = false;
+    }
+    
+    return result;
 }
 
 // Draw main menu
@@ -691,6 +704,12 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
 // Draw callback
 void flipchanger_draw_callback(Canvas* canvas, void* ctx) {
     FlipChangerApp* app = (FlipChangerApp*)ctx;
+    
+    // Safety check - don't draw if app is exiting
+    if(!app || !app->running) {
+        canvas_clear(canvas);
+        return;
+    }
     
     switch(app->current_view) {
         case VIEW_MAIN_MENU:
@@ -905,6 +924,11 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
 void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
     FlipChangerApp* app = (FlipChangerApp*)ctx;
     
+    // Safety check - don't process input if app is exiting
+    if(!app || !app->running) {
+        return;
+    }
+    
     if(input_event->type != InputTypePress) {
         return;
     }
@@ -932,6 +956,8 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                 }
             } else if(input_event->key == InputKeyBack) {
                 app->running = false;
+                // Don't update view port after setting running to false
+                return;
             }
             break;
             
@@ -1151,7 +1177,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                 }
             }
             
-            view_port_update(app->view_port);
+            // Only update if app is still running
+            if(app->running && app->view_port) {
+                view_port_update(app->view_port);
+            }
             break;
         }
             
@@ -1159,7 +1188,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             break;
     }
     
-    view_port_update(app->view_port);
+    // Only update if app is still running
+    if(app->running && app->view_port) {
+        view_port_update(app->view_port);
+    }
 }
 
 // Main entry point
@@ -1200,31 +1232,44 @@ int32_t flipchanger_main(void* p) {
         furi_delay_ms(100);
     }
     
-    // Prevent further input processing
+    // Save data FIRST (before setting running to false, while everything is valid)
+    if(app->dirty && app->storage) {
+        flipchanger_save_data(app);
+        app->dirty = false;  // Mark as saved
+    }
+    
+    // NOW set running to false - prevents further callbacks
     app->running = false;
     
-    // Cleanup GUI first (prevent further draw calls)
+    // Remove view port from GUI FIRST (prevents further callbacks)
     if(app->gui && app->view_port) {
         gui_remove_view_port(app->gui, app->view_port);
     }
+    
+    // Clear callbacks before freeing view port
     if(app->view_port) {
+        view_port_draw_callback_set(app->view_port, NULL, NULL);
+        view_port_input_callback_set(app->view_port, NULL, NULL);
         view_port_free(app->view_port);
+        app->view_port = NULL;
     }
     
-    // Save data if dirty (before closing storage)
-    if(app->dirty && app->storage) {
-        flipchanger_save_data(app);
-    }
-    
-    // Close records
+    // Close GUI record (must be after view port cleanup)
     if(app->gui) {
         furi_record_close(RECORD_GUI);
+        app->gui = NULL;
     }
+    
+    // Close notifications
     if(app->notifications) {
         furi_record_close(RECORD_NOTIFICATION);
+        app->notifications = NULL;
     }
+    
+    // Close storage LAST
     if(app->storage) {
         furi_record_close(RECORD_STORAGE);
+        app->storage = NULL;
     }
     
     // Free app structure
