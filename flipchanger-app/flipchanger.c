@@ -539,7 +539,7 @@ void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
     // Menu options
     canvas_set_font(canvas, FontSecondary);
     
-    int32_t y = 25;
+    int32_t y = 22;  // Adjusted starting position
     const char* menu_items[] = {
         "View Slots",
         "Add CD",
@@ -558,12 +558,12 @@ void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
         if(i == selected) {
             canvas_invert_color(canvas);
         }
-        y += 12;
+        y += 10;  // Reduced spacing from 12 to 10 to prevent overlap
     }
     
-    // Footer
+    // Footer (at bottom, clear of menu items)
     canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 60, "UP/DN:Select OK:Go BACK:Exit");
+    canvas_draw_str(canvas, 5, 62, "UP/DN:Select OK:Go BACK:Exit");
 }
 
 // Draw slot list
