@@ -528,6 +528,9 @@ bool flipchanger_save_data(FlipChangerApp* app) {
     return result;
 }
 
+// Forward declarations
+void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app);
+
 // Draw main menu
 void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
     canvas_clear(canvas);
@@ -724,6 +727,9 @@ void flipchanger_draw_callback(Canvas* canvas, void* ctx) {
         case VIEW_ADD_EDIT_CD:
             flipchanger_draw_add_edit(canvas, app);
             break;
+        case VIEW_TRACK_MANAGEMENT:
+            flipchanger_draw_track_management(canvas, app);
+            break;
         default:
             canvas_clear(canvas);
             canvas_set_font(canvas, FontPrimary);
@@ -758,6 +764,9 @@ void flipchanger_show_add_edit(FlipChangerApp* app, int32_t slot_index, bool is_
     app->edit_field = FIELD_ARTIST;
     app->edit_char_pos = 0;
     app->edit_char_selection = 0;
+    app->edit_selected_track = 0;
+    app->editing_track = false;
+    app->edit_track_field = TRACK_FIELD_TITLE;
     
     // Ensure slot is in cache
     flipchanger_update_cache(app, slot_index);
@@ -810,7 +819,8 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         "Album:",
         "Year:",
         "Genre:",
-        "Notes:"
+        "Notes:",
+        "Tracks:"
     };
     
     char* field_values[] = {
@@ -818,11 +828,12 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         slot->cd.album,
         NULL,  // Year handled separately
         slot->cd.genre,
-        slot->cd.notes
+        slot->cd.notes,
+        NULL   // Tracks handled separately
     };
     
-    // Draw fields
-    for(int32_t i = 0; i < FIELD_SAVE && i < 5; i++) {
+    // Draw fields (6 fields + Save = 7 total)
+    for(int32_t i = 0; i < FIELD_SAVE && i < 6; i++) {
         bool is_selected = (app->edit_field == i);
         
         // Highlight selected field
@@ -896,16 +907,23 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             UNUSED(max_len);  // For future use
         }
         
+        // Special handling for Tracks field
+        if(i == FIELD_TRACKS) {
+            char tracks_display[32];
+            snprintf(tracks_display, sizeof(tracks_display), "%ld tracks", (long)slot->cd.track_count);
+            canvas_draw_str(canvas, 40, y, tracks_display);
+        }
+        
         if(is_selected) {
             canvas_invert_color(canvas);
         }
         
-        y += 10;
+        y += 9;  // Reduced spacing to fit more fields
     }
     
     // Save button
     bool save_selected = (app->edit_field == FIELD_SAVE);
-    y = 58;
+    y = 60;
     if(save_selected) {
         canvas_draw_box(canvas, 2, y - 8, 124, 8);
         canvas_invert_color(canvas);
@@ -917,7 +935,73 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     
     // Footer
     canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 64, "UP/DN:Field LEFT/R:Pos OK:Add BACK:Del");
+    if(app->edit_field == FIELD_TRACKS) {
+        canvas_draw_str(canvas, 5, 64, "OK:Manage Tracks");
+    } else {
+        canvas_draw_str(canvas, 5, 64, "UP/DN:Field LEFT/R:Pos OK:Add BACK:Del");
+    }
+}
+
+// Draw Track Management view
+void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
+    canvas_clear(canvas);
+    
+    Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
+    if(!slot) {
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 5, 30, "Slot not loaded");
+        return;
+    }
+    
+    canvas_set_font(canvas, FontPrimary);
+    
+    // Title
+    char title[48];
+    snprintf(title, sizeof(title), "Tracks (%ld)", (long)slot->cd.track_count);
+    canvas_draw_str(canvas, 5, 10, title);
+    
+    canvas_set_font(canvas, FontSecondary);
+    
+    // Show tracks (up to 4 visible)
+    int32_t y = 22;
+    int32_t start_track = 0;
+    if(app->edit_selected_track >= 4) {
+        start_track = app->edit_selected_track - 3;
+    }
+    
+    for(int32_t i = start_track; i < slot->cd.track_count && i < start_track + 4; i++) {
+        bool is_selected = (i == app->edit_selected_track);
+        
+        if(is_selected) {
+            canvas_draw_box(canvas, 2, y - 8, 124, 9);
+            canvas_invert_color(canvas);
+        }
+        
+        // Track number and title
+        char track_line[80];
+        Track* track = &slot->cd.tracks[i];
+        snprintf(track_line, sizeof(track_line), "%ld. %s", (long)track->number, track->title);
+        canvas_draw_str(canvas, 5, y, track_line);
+        
+        // Duration on right
+        if(strlen(track->duration) > 0) {
+            canvas_draw_str(canvas, 100, y, track->duration);
+        }
+        
+        if(is_selected) {
+            canvas_invert_color(canvas);
+        }
+        
+        y += 10;
+    }
+    
+    // Footer
+    canvas_set_font(canvas, FontKeyboard);
+    if(app->editing_track) {
+        canvas_draw_str(canvas, 5, 64, "OK:Confirm BACK:Cancel");
+    } else {
+        canvas_draw_str(canvas, 5, 64, "OK:Edit +:Add -:Del BACK:Return");
+    }
 }
 
 // Input callback
@@ -1021,7 +1105,21 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     notification_message(app->notifications, &sequence_blink_green_100);
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 } else if(input_event->key == InputKeyUp) {
+                    app->edit_field = FIELD_TRACKS;
+                } else if(input_event->key == InputKeyBack) {
+                    flipchanger_show_slot_details(app, app->current_slot_index);
+                }
+            } else if(app->edit_field == FIELD_TRACKS) {
+                // Tracks field selected
+                if(input_event->key == InputKeyOk) {
+                    // Enter track management view
+                    app->current_view = VIEW_TRACK_MANAGEMENT;
+                    app->edit_selected_track = 0;
+                    app->editing_track = false;
+                } else if(input_event->key == InputKeyUp) {
                     app->edit_field = FIELD_NOTES;
+                } else if(input_event->key == InputKeyDown) {
+                    app->edit_field = FIELD_SAVE;
                 } else if(input_event->key == InputKeyBack) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 }
@@ -1180,6 +1278,79 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             // Only update if app is still running
             if(app->running && app->view_port) {
                 view_port_update(app->view_port);
+            }
+            break;
+        }
+            
+        case VIEW_TRACK_MANAGEMENT: {
+            Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
+            if(!slot) {
+                if(input_event->key == InputKeyBack) {
+                    app->current_view = VIEW_ADD_EDIT_CD;
+                }
+                break;
+            }
+            
+            if(app->editing_track) {
+                // Editing track title or duration
+                if(input_event->key == InputKeyOk) {
+                    app->editing_track = false;
+                } else if(input_event->key == InputKeyBack) {
+                    app->editing_track = false;
+                } else if(input_event->key == InputKeyUp || input_event->key == InputKeyDown) {
+                    // Switch between title and duration
+                    app->edit_track_field = (app->edit_track_field == TRACK_FIELD_TITLE) ? TRACK_FIELD_DURATION : TRACK_FIELD_TITLE;
+                }
+                // TODO: Add character input for track editing
+            } else {
+                // Track list navigation
+                if(input_event->key == InputKeyUp) {
+                    if(app->edit_selected_track > 0) {
+                        app->edit_selected_track--;
+                    }
+                } else if(input_event->key == InputKeyDown) {
+                    if(app->edit_selected_track < slot->cd.track_count - 1) {
+                        app->edit_selected_track++;
+                    }
+                } else if(input_event->key == InputKeyOk) {
+                    // Edit selected track
+                    if(app->edit_selected_track >= 0 && app->edit_selected_track < slot->cd.track_count) {
+                        app->editing_track = true;
+                        app->edit_track_field = TRACK_FIELD_TITLE;
+                        app->edit_char_pos = 0;
+                        app->edit_char_selection = 0;
+                    }
+                } else if(input_event->key == InputKeyRight) {
+                    // Add new track
+                    if(slot->cd.track_count < MAX_TRACKS) {
+                        Track* new_track = &slot->cd.tracks[slot->cd.track_count];
+                        new_track->number = slot->cd.track_count + 1;
+                        new_track->title[0] = '\0';
+                        new_track->duration[0] = '\0';
+                        slot->cd.track_count++;
+                        app->edit_selected_track = slot->cd.track_count - 1;
+                        app->dirty = true;
+                        notification_message(app->notifications, &sequence_blink_blue_100);
+                    }
+                } else if(input_event->key == InputKeyLeft) {
+                    // Delete selected track
+                    if(app->edit_selected_track >= 0 && app->edit_selected_track < slot->cd.track_count) {
+                        // Shift tracks down
+                        for(int32_t i = app->edit_selected_track; i < slot->cd.track_count - 1; i++) {
+                            slot->cd.tracks[i] = slot->cd.tracks[i + 1];
+                            slot->cd.tracks[i].number = i + 1;
+                        }
+                        slot->cd.track_count--;
+                        if(app->edit_selected_track >= slot->cd.track_count && app->edit_selected_track > 0) {
+                            app->edit_selected_track--;
+                        }
+                        app->dirty = true;
+                        notification_message(app->notifications, &sequence_blink_red_100);
+                    }
+                } else if(input_event->key == InputKeyBack) {
+                    // Return to Add/Edit view
+                    app->current_view = VIEW_ADD_EDIT_CD;
+                }
             }
             break;
         }

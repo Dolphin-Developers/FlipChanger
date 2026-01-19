@@ -79,6 +79,7 @@ typedef struct {
         VIEW_SLOT_LIST,
         VIEW_SLOT_DETAILS,
         VIEW_ADD_EDIT_CD,
+        VIEW_TRACK_MANAGEMENT,
         VIEW_CONFIRM_DELETE,
     } current_view;
     
@@ -94,11 +95,20 @@ typedef struct {
         FIELD_YEAR,
         FIELD_GENRE,
         FIELD_NOTES,
+        FIELD_TRACKS,
         FIELD_SAVE,
         FIELD_COUNT
     } edit_field;                 // Current field being edited
     int32_t edit_char_pos;        // Character position in current field
     int32_t edit_char_selection;  // Selected character (for character picker)
+    
+    // Track Management State
+    int32_t edit_selected_track;  // Selected track index for editing
+    bool editing_track;            // True if editing a track (title/duration)
+    enum {
+        TRACK_FIELD_TITLE,
+        TRACK_FIELD_DURATION,
+    } edit_track_field;            // Which track field is being edited
     
 } FlipChangerApp;
 
