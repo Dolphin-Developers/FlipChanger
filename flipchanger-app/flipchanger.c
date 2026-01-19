@@ -76,7 +76,7 @@ Slot* flipchanger_get_slot(FlipChangerApp* app, int32_t slot_index) {
     return NULL;
 }
 
-// Update cache to include requested slot
+// Update cache to include requested slot (only call from input handler, not draw!)
 void flipchanger_update_cache(FlipChangerApp* app, int32_t slot_index) {
     // Calculate new cache start
     int32_t new_cache_start = slot_index - (SLOT_CACHE_SIZE / 2);
@@ -92,14 +92,16 @@ void flipchanger_update_cache(FlipChangerApp* app, int32_t slot_index) {
     
     // Only reload if cache needs to shift
     if(new_cache_start != app->cache_start_index) {
-        // Save current cache if dirty
-        if(app->dirty) {
+        // Save current cache if dirty (before reloading)
+        if(app->dirty && app->storage) {
             flipchanger_save_data(app);
         }
         
         // Reload data from SD card (this loads cached slots)
         // TODO: Optimize to load only the new cache range
-        flipchanger_load_data(app);
+        if(app->storage) {
+            flipchanger_load_data(app);
+        }
         app->cache_start_index = new_cache_start;
         
         // Update slot numbers in cache
@@ -220,7 +222,7 @@ static const char* find_json_key(const char* json, const char* key) {
 
 // Load data from JSON file
 bool flipchanger_load_data(FlipChangerApp* app) {
-    if(!app->storage) {
+    if(!app || !app->storage) {
         return false;
     }
     
@@ -403,7 +405,7 @@ static void write_json_string(File* file, const char* str) {
 
 // Save data to JSON file (saves cached slots)
 bool flipchanger_save_data(FlipChangerApp* app) {
-    if(!app->storage) {
+    if(!app || !app->storage) {
         return false;
     }
     
@@ -572,8 +574,8 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
     canvas_set_font(canvas, FontSecondary);
     int32_t y = 20;
     
-    // Update cache for visible slots
-    flipchanger_update_cache(app, app->selected_index);
+    // Don't update cache during draw - only read from cache
+    // Cache should be updated before entering this view
     
     for(int32_t i = start_index; i < end_index; i++) {
         char line[80];  // Increased buffer size
@@ -617,8 +619,7 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         return;
     }
     
-    // Get slot from cache or SD card
-    flipchanger_update_cache(app, app->current_slot_index);
+    // Get slot from cache (cache should already be updated)
     Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
     
     if(!slot) {
@@ -1199,20 +1200,34 @@ int32_t flipchanger_main(void* p) {
         furi_delay_ms(100);
     }
     
-    // Save data if dirty
-    if(app->dirty) {
+    // Prevent further input processing
+    app->running = false;
+    
+    // Cleanup GUI first (prevent further draw calls)
+    if(app->gui && app->view_port) {
+        gui_remove_view_port(app->gui, app->view_port);
+    }
+    if(app->view_port) {
+        view_port_free(app->view_port);
+    }
+    
+    // Save data if dirty (before closing storage)
+    if(app->dirty && app->storage) {
         flipchanger_save_data(app);
     }
     
-    // Final save before exit
-    flipchanger_save_data(app);
+    // Close records
+    if(app->gui) {
+        furi_record_close(RECORD_GUI);
+    }
+    if(app->notifications) {
+        furi_record_close(RECORD_NOTIFICATION);
+    }
+    if(app->storage) {
+        furi_record_close(RECORD_STORAGE);
+    }
     
-    // Cleanup
-    gui_remove_view_port(app->gui, app->view_port);
-    view_port_free(app->view_port);
-    furi_record_close(RECORD_GUI);
-    furi_record_close(RECORD_STORAGE);
-    furi_record_close(RECORD_NOTIFICATION);
+    // Free app structure
     free(app);
     
     return 0;
