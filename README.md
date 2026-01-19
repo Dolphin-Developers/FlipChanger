@@ -21,17 +21,27 @@ FlipChanger is an open-source application for the Flipper Zero that helps users 
 - [Development Setup Guide](docs/development_setup.md) - Complete research on Flipper Zero app development
 - [Quick Start Checklist](docs/quick_start_checklist.md) - Get started checklist
 
-## Hello World Test App
+## Hello World Test Apps
 
-A sample "Hello World" app is included in `hello-world-app/` to test your development setup.
+Two sample "Hello World" apps are included to test your development setup:
 
-**To use it:**
-1. Install Node.js (see [hello-world-app/INSTALL.md](hello-world-app/INSTALL.md))
-2. Install dependencies: `cd hello-world-app && npm install`
-3. Connect your Flipper Zero via USB
-4. Run: `npm start`
+### 1. JavaScript/TypeScript Version (`hello-world-app/`)
+- Uses Flipper Zero JS SDK
+- Requires Node.js
+- See [hello-world-app/README.md](hello-world-app/README.md)
 
-See [hello-world-app/README.md](hello-world-app/README.md) for full instructions.
+### 2. C/C++ Version with uFBT (`hello-world-ufbt/`) ✅ **RECOMMENDED**
+- Uses uFBT (Micro Flipper Build Tool) - **Already installed!**
+- Native C app - full hardware access
+- **Quick start:**
+  ```bash
+  cd hello-world-ufbt
+  ufbt build    # Build the app
+  ufbt launch   # Deploy and run on device
+  ```
+- See [hello-world-ufbt/README.md](hello-world-ufbt/README.md) for full instructions
+
+**Status**: ✅ uFBT installed and tested - build successful!
 
 ## Installation
 

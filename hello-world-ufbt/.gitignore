@@ -1,0 +1,28 @@
+# Build outputs
+dist/
+build/
+*.fap
+*.elf
+*.map
+*.o
+*.a
+
+# uFBT cache
+.ufbt/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
