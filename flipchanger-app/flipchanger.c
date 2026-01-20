@@ -790,6 +790,13 @@ void flipchanger_show_add_edit(FlipChangerApp* app, int32_t slot_index, bool is_
 void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     canvas_clear(canvas);
     
+    // Safety checks
+    if(!app) {
+        canvas_set_font(canvas, FontPrimary);
+        canvas_draw_str(canvas, 5, 30, "App error");
+        return;
+    }
+    
     if(app->current_slot_index < 0 || app->current_slot_index >= app->total_slots) {
         canvas_set_font(canvas, FontPrimary);
         canvas_draw_str(canvas, 5, 30, "Invalid slot");
@@ -801,6 +808,17 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         canvas_set_font(canvas, FontPrimary);
         canvas_draw_str(canvas, 5, 30, "Slot not loaded");
         return;
+    }
+    
+    // Ensure edit_field is valid (cast to int for comparison)
+    int32_t edit_field_int = (int32_t)app->edit_field;
+    if(edit_field_int < (int32_t)FIELD_ARTIST || edit_field_int >= (int32_t)FIELD_COUNT) {
+        app->edit_field = FIELD_ARTIST;
+    }
+    
+    // Ensure cursor position is valid
+    if(app->edit_char_pos < 0) {
+        app->edit_char_pos = 0;
     }
     
     canvas_set_font(canvas, FontPrimary);
@@ -874,6 +892,12 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             char* value = field_values[i];
             int32_t max_len = 0;
             
+            // Safety check - ensure value is valid
+            if(!value && i != FIELD_YEAR && i != FIELD_TRACKS) {
+                // Should not happen, but handle gracefully
+                continue;
+            }
+            
             // Get max length for field
             switch(i) {
                 case FIELD_ARTIST: max_len = MAX_ARTIST_LENGTH; break;
@@ -884,23 +908,37 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             }
             
             // Display value (truncate if too long for display)
-            char display[64];
-            snprintf(display, sizeof(display), "%.30s", value);
-            canvas_draw_str(canvas, 40, y, display);
-            
-            // Show cursor position
-            if(is_selected) {
-                int32_t x_pos = 40 + (app->edit_char_pos * 6);
-                if(x_pos < 128) {
-                    canvas_draw_line(canvas, x_pos, y, x_pos, y - 8);
-                }
+            if(value) {
+                // Ensure string is null-terminated
+                value[max_len - 1] = '\0';
                 
-                // Show character picker (only if not navigating)
-                if(app->edit_char_selection > 0 || strlen(value) == 0 || app->edit_char_pos < (int32_t)strlen(value)) {
-                    int32_t char_idx = app->edit_char_selection % strlen(CHAR_SET);
-                    char char_display[4];
-                    snprintf(char_display, sizeof(char_display), "[%c]", CHAR_SET[char_idx]);
-                    canvas_draw_str(canvas, 100, y, char_display);
+                char display[64];
+                snprintf(display, sizeof(display), "%.30s", value);
+                canvas_draw_str(canvas, 40, y, display);
+                
+                // Show cursor position
+                if(is_selected) {
+                    // Ensure cursor position is within bounds
+                    int32_t value_len = strlen(value);
+                    if(app->edit_char_pos > value_len) {
+                        app->edit_char_pos = value_len;
+                    }
+                    
+                    int32_t x_pos = 40 + (app->edit_char_pos * 6);
+                    if(x_pos < 128 && x_pos >= 40) {
+                        canvas_draw_line(canvas, x_pos, y, x_pos, y - 8);
+                    }
+                    
+                    // Show character picker (only if not navigating)
+                    int32_t char_set_len = strlen(CHAR_SET);
+                    if(char_set_len > 0) {
+                        if(app->edit_char_selection > 0 || value_len == 0 || app->edit_char_pos < value_len) {
+                            int32_t char_idx = app->edit_char_selection % char_set_len;
+                            char char_display[4];
+                            snprintf(char_display, sizeof(char_display), "[%c]", CHAR_SET[char_idx]);
+                            canvas_draw_str(canvas, 100, y, char_display);
+                        }
+                    }
                 }
             }
             
@@ -1106,12 +1144,37 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
         }
             
         case VIEW_ADD_EDIT_CD: {
+            // Safety check - ensure slot index is valid
+            if(app->current_slot_index < 0 || app->current_slot_index >= app->total_slots) {
+                if(input_event->key == InputKeyBack) {
+                    app->current_view = VIEW_SLOT_LIST;
+                }
+                break;
+            }
+            
             Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
             if(!slot) {
                 if(input_event->key == InputKeyBack) {
-                    flipchanger_show_slot_list(app);
+                    app->current_view = VIEW_SLOT_LIST;
                 }
                 break;
+            }
+            
+            // Ensure edit_field is valid (cast to int for comparison)
+            int32_t edit_field_int = (int32_t)app->edit_field;
+            if(edit_field_int < (int32_t)FIELD_ARTIST || edit_field_int >= (int32_t)FIELD_COUNT) {
+                app->edit_field = FIELD_ARTIST;
+            }
+            
+            // Ensure cursor position is valid
+            if(app->edit_char_pos < 0) {
+                app->edit_char_pos = 0;
+            }
+            
+            // Ensure char_selection is valid
+            int32_t char_set_len = strlen(CHAR_SET);
+            if(char_set_len > 0 && app->edit_char_selection < 0) {
+                app->edit_char_selection = 0;
             }
             
             if(app->edit_field == FIELD_SAVE) {
@@ -1242,19 +1305,33 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                                 break;
                         }
                         
-                        if(field && app->edit_char_pos < max_len - 1) {
-                            int32_t len = strlen(field);
-                            char ch = CHAR_SET[app->edit_char_selection % strlen(CHAR_SET)];
+                        if(field && app->edit_char_pos >= 0 && app->edit_char_pos < max_len - 1) {
+                            // Ensure field is null-terminated
+                            field[max_len - 1] = '\0';
                             
-                            // Insert character at cursor position
-                            if(app->edit_char_pos <= len) {
-                                // Shift existing characters
-                                for(int32_t i = len; i >= app->edit_char_pos && i < max_len - 1; i--) {
-                                    field[i + 1] = field[i];
+                            int32_t len = strlen(field);
+                            
+                            // Ensure cursor position is within bounds
+                            if(app->edit_char_pos > len) {
+                                app->edit_char_pos = len;
+                            }
+                            
+                            int32_t char_set_len = strlen(CHAR_SET);
+                            if(char_set_len > 0) {
+                                char ch = CHAR_SET[app->edit_char_selection % char_set_len];
+                                
+                                // Insert character at cursor position
+                                if(app->edit_char_pos <= len && len < max_len - 1) {
+                                    // Shift existing characters
+                                    for(int32_t i = len; i >= app->edit_char_pos && i < max_len - 2; i--) {
+                                        field[i + 1] = field[i];
+                                    }
+                                    field[app->edit_char_pos] = ch;
+                                    field[len + 1] = '\0';
+                                    if(app->edit_char_pos < max_len - 2) {
+                                        app->edit_char_pos++;
+                                    }
                                 }
-                                field[app->edit_char_pos] = ch;
-                                field[len + 1] = '\0';
-                                app->edit_char_pos++;
                             }
                         }
                     }
