@@ -959,9 +959,9 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         y += 9;  // Reduced spacing to fit more fields
     }
     
-    // Save button
+    // Save button - moved up to prevent overlap
     bool save_selected = (app->edit_field == FIELD_SAVE);
-    y = 60;
+    y = 54;  // Moved up from 60 to make room for footer
     if(save_selected) {
         canvas_draw_box(canvas, 2, y - 8, 124, 8);
         canvas_invert_color(canvas);
@@ -1188,6 +1188,9 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 } else if(input_event->key == InputKeyUp) {
                     app->edit_field = FIELD_TRACKS;
+                } else if(input_event->key == InputKeyDown) {
+                    // Wrap to top
+                    app->edit_field = FIELD_ARTIST;
                 } else if(input_event->key == InputKeyBack) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 }
@@ -1205,40 +1208,53 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                 } else if(input_event->key == InputKeyBack) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 }
-            } else {
-                // Editing a field
+            } else if(app->edit_field == FIELD_YEAR) {
+                // Year field - special handling
                 if(input_event->key == InputKeyUp) {
-                    // Navigate fields or change character
-                    if(app->edit_char_selection == 0) {
-                        // Navigate to previous field
-                        if(app->edit_field > FIELD_ARTIST) {
-                            app->edit_field = app->edit_field - 1;
-                        } else {
-                            app->edit_field = FIELD_SAVE;
-                        }
-                    } else {
-                        // Change selected character (wrap around)
-                        app->edit_char_selection = (app->edit_char_selection - 1 + strlen(CHAR_SET)) % strlen(CHAR_SET);
+                    // Navigate to previous field
+                    app->edit_field = FIELD_GENRE;
+                    app->edit_char_pos = 0;
+                    app->edit_char_selection = 0;
+                } else if(input_event->key == InputKeyDown) {
+                    // Navigate to next field
+                    app->edit_field = FIELD_GENRE;
+                    app->edit_char_pos = 0;
+                    app->edit_char_selection = 0;
+                } else if(input_event->key == InputKeyOk) {
+                    // Cycle through numbers 0-9 (if char_selection is in number range)
+                    // For now, allow any char_selection >= 26 to be a number
+                    if(app->edit_char_selection >= 26) {
+                        int32_t digit = (app->edit_char_selection - 26) % 10;
+                        slot->cd.year = slot->cd.year * 10 + digit;
+                        if(slot->cd.year > 9999) slot->cd.year = 9999;
+                        app->edit_char_selection = 26;  // Reset to '0'
+                    }
+                } else if(input_event->key == InputKeyBack) {
+                    // Delete last digit
+                    slot->cd.year = slot->cd.year / 10;
+                }
+            } else {
+                // Editing a field (Artist, Album, Genre, Notes, Year)
+                // UP/DOWN changes character selection, OK adds character
+                // To navigate fields: Use BACK to exit, or navigate via Save/Tracks fields
+                if(input_event->key == InputKeyUp) {
+                    // Change character selection (previous character)
+                    int32_t char_set_len = strlen(CHAR_SET);
+                    if(char_set_len > 0) {
+                        app->edit_char_selection = (app->edit_char_selection - 1 + char_set_len) % char_set_len;
                     }
                 } else if(input_event->key == InputKeyDown) {
-                    // Navigate fields or change character
-                    if(app->edit_char_selection == 0) {
-                        // Navigate to next field
-                        if(app->edit_field < FIELD_SAVE) {
-                            app->edit_field = app->edit_field + 1;
-                        } else {
-                            app->edit_field = FIELD_ARTIST;
-                        }
-                    } else {
-                        // Change selected character
-                        app->edit_char_selection = (app->edit_char_selection + 1) % strlen(CHAR_SET);
+                    // Change character selection (next character)
+                    int32_t char_set_len = strlen(CHAR_SET);
+                    if(char_set_len > 0) {
+                        app->edit_char_selection = (app->edit_char_selection + 1) % char_set_len;
                     }
                 } else if(input_event->key == InputKeyLeft) {
                     // Move cursor left
                     if(app->edit_char_pos > 0) {
                         app->edit_char_pos--;
-                        app->edit_char_selection = 0;
                     }
+                    // Don't reset char_selection - keep current selection
                 } else if(input_event->key == InputKeyRight) {
                     // Move cursor right
                     char* field = NULL;
@@ -1265,9 +1281,16 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                             break;
                     }
                     
-                    if(field && app->edit_char_pos < (int32_t)strlen(field) && app->edit_char_pos < max_len - 1) {
-                        app->edit_char_pos++;
-                        app->edit_char_selection = 0;
+                    if(field) {
+                        int32_t field_len = strlen(field);
+                        // Allow moving cursor right to end of field + 1 (for appending)
+                        if(app->edit_char_pos < field_len && app->edit_char_pos < max_len - 1) {
+                            app->edit_char_pos++;
+                        } else if(app->edit_char_pos == field_len && app->edit_char_pos < max_len - 1) {
+                            // Already at end, allow staying at end position
+                            app->edit_char_pos = field_len;
+                        }
+                        // Don't reset char_selection - keep current selection
                     }
                 } else if(input_event->key == InputKeyOk) {
                     // Add/insert character
