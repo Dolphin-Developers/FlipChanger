@@ -2,7 +2,7 @@
 
 This document tracks the development progress of the FlipChanger project.
 
-**Last Updated**: January 19, 2025
+**Last Updated**: January 24, 2025
 
 ---
 
@@ -91,51 +91,72 @@ This document tracks the development progress of the FlipChanger project.
 - [x] Fixed launch crash (stack overflow - buffer size)
 - [x] Comprehensive safety checks added
 
+### ✅ Phase 10: Track Editing (Complete)
+- [x] Track title editing with character input
+- [x] Track duration editing (numeric only, seconds)
+- [x] Field switching (LEFT/RIGHT or BACK at start/end)
+- [x] Character input for track titles
+- [x] Numeric input for track duration (0-9)
+- [x] DEL character option in character selector
+- [x] Long press BACK to exit track editing
+- [x] Proper field navigation and cursor management
+
+### ✅ Phase 11: UI/UX Improvements (Complete)
+- [x] Scrollable slot details view (shows 3 items at a time)
+- [x] Settings menu stub (VIEW_SETTINGS added)
+- [x] Statistics menu stub (VIEW_STATISTICS added)
+- [x] Footer text fixed (two lines with abbreviations)
+- [x] Year field fixed (numbers only, proper navigation)
+- [x] Long press BACK support throughout app
+- [x] Improved field navigation in Add/Edit view
+- [x] Better footer instructions (U/D, L/R, K, B, LB abbreviations)
+
 ---
 
 ## In Progress / Needs Improvement
 
 ### 🚧 Phase 7: Add/Edit Interface (Polish Needed)
-- [ ] Field display truncation/scrolling for long text (>15 chars)
-- [ ] Better field navigation (currently limited)
-- [ ] Pop-out views for full-screen field editing
-- [ ] Track editing (title/duration) - structure exists, needs character input
+- [x] Field display scrolling for long text (implemented)
+- [x] Better field navigation (improved with dual-mode input)
+- [ ] Pop-out views for full-screen field editing (future enhancement)
+- [x] Track editing (title/duration) - ✅ COMPLETE
 
 ### 🚧 Phase 8: Track Management (Polish Needed)
-- [ ] Track editing (title and duration entry)
-- [ ] Improved button actions (LEFT/RIGHT for add/delete is confusing)
-- [ ] Better track list display
+- [x] Track editing (title and duration entry) - ✅ COMPLETE
+- [ ] Improved button actions (LEFT/RIGHT for add/delete could be clearer)
+- [x] Better track list display (improved)
 
 ---
 
 ## Planned Features
 
-### 📋 Phase 10: Enhanced Fields
+### 📋 Phase 12: Enhanced Fields
 - [ ] Add "Disc Number" field
 - [ ] Split Artist into "Track Artist" and "Album Artist"
 - [ ] Improved metadata structure for compilations/DJ sets
 
-### 📋 Phase 11: Settings Menu
-- [ ] Settings menu view
-- [ ] Slot count configuration (3-200)
-- [ ] Save settings to JSON
-- [ ] Load settings on startup
+### 📋 Phase 13: Settings Menu (Stub Complete)
+- [x] Settings menu view (stub implemented)
+- [ ] Slot count configuration (3-200) - needs implementation
+- [ ] Save settings to JSON - needs implementation
+- [ ] Load settings on startup - needs implementation
+- [ ] Settings menu functionality (currently shows "Coming Soon")
 
-### 📋 Phase 12: Statistics View
-- [ ] Statistics view
-- [ ] Total CDs count
-- [ ] CDs by artist (count)
-- [ ] CDs by genre (count)
-- [ ] Empty slots count
-- [ ] Collection size percentage
+### 📋 Phase 14: Statistics View (Stub Complete)
+- [x] Statistics view (stub implemented)
+- [ ] Total CDs count - needs implementation
+- [ ] CDs by artist (count) - needs implementation
+- [ ] CDs by genre (count) - needs implementation
+- [ ] Empty slots count - needs implementation
+- [ ] Collection size percentage - needs implementation
 
-### 📋 Phase 13: IR Integration (Future)
+### 📋 Phase 15: IR Integration (Future)
 - [ ] Research IR database API
 - [ ] Find CD changer remote codes
 - [ ] Implement IR control commands
 - [ ] Test with actual CD changer
 
-### 📋 Phase 14: Polish and Testing
+### 📋 Phase 16: Polish and Testing
 - [ ] Comprehensive error handling
 - [ ] Input validation improvements
 - [ ] UI/UX improvements
@@ -143,7 +164,7 @@ This document tracks the development progress of the FlipChanger project.
 - [ ] Full device testing
 - [ ] Documentation completion
 
-### 📋 Phase 15: App Store Submission
+### 📋 Phase 17: App Store Submission
 - [ ] Compliance review
 - [ ] Final testing
 - [ ] Submission to Flipper Apps Catalog
@@ -168,10 +189,11 @@ This document tracks the development progress of the FlipChanger project.
 - **Deployment**: Via USB (57-115 KB/s transfer rate)
 
 ### Code Quality
-- **Lines of Code**: ~1500+ (main application)
+- **Lines of Code**: ~2100+ (main application)
 - **Compilation**: ✅ No warnings/errors
 - **Memory Safety**: ✅ Comprehensive bounds checking and validation
 - **Error Handling**: Robust (extensive safety checks added)
+- **UI/UX**: ✅ Improved with scrollable menus, better footers, long press support
 
 ### Stability Improvements
 - **Crash Fixes**: Multiple critical crashes resolved
@@ -198,40 +220,43 @@ This document tracks the development progress of the FlipChanger project.
 
 ## Known Issues / TODO
 
-1. **Field Display**: Text longer than ~15 characters runs off screen - needs truncation/scrolling
-2. **Track Editing**: Track title/duration editing needs character input implementation
-3. **Field Navigation**: Currently limited - needs improvement for better UX
-4. **Pop-out Views**: Need full-screen field editing views for better usability
-5. **Additional Fields**: Need to add "Disc Number" and split Artist fields
+1. **Settings Menu**: Stub implemented, needs full functionality (slot count configuration)
+2. **Statistics View**: Stub implemented, needs calculation and display logic
+3. **Pop-out Views**: Could add full-screen field editing views for better usability (future enhancement)
+4. **Additional Fields**: Need to add "Disc Number" and split Artist fields
+5. **Track Management**: Button actions (LEFT/RIGHT for add/delete) could be clearer
 
 ---
 
 ## Next Steps (Priority Order)
 
 1. **Test Current Build** (Immediate)
-   - Verify all recent bug fixes
-   - Test character input improvements
-   - Test cursor movement
-   - Verify save/load persistence
+   - Verify all recent UI/UX improvements
+   - Test scrollable slot details
+   - Test Settings/Statistics stubs
+   - Test footer abbreviations
+   - Test Year field numeric input
+   - Test long press BACK functionality
 
-2. **UI/UX Improvements** (High Priority)
-   - Implement pop-out views for field editing
-   - Add field display truncation/scrolling
-   - Improve track management button actions
+2. **Implement Settings Menu** (High Priority)
+   - Slot count configuration (3-200)
+   - Save/load settings to JSON
+   - Settings persistence
 
-3. **Enhanced Fields** (Medium Priority)
+3. **Implement Statistics View** (High Priority)
+   - Calculate total CDs count
+   - Calculate CDs by artist/genre
+   - Display collection statistics
+
+4. **Enhanced Fields** (Medium Priority)
    - Add "Disc Number" field
    - Split Artist into Track/Album Artist
 
-4. **Polish Features** (Medium Priority)
-   - Track editing completion
-   - Settings menu
-   - Statistics view
-
-5. **Testing & Documentation** (Quality)
+5. **Polish & Testing** (Quality)
    - Comprehensive testing
    - User documentation
    - Code comments
+   - App icon creation
 
 ---
 

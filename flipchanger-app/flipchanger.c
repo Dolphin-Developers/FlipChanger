@@ -530,6 +530,8 @@ bool flipchanger_save_data(FlipChangerApp* app) {
 
 // Forward declarations
 void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app);
+void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app);
+void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app);
 
 // Draw main menu
 void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
@@ -564,9 +566,10 @@ void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
         y += 10;  // Reduced spacing from 12 to 10 to prevent overlap
     }
     
-    // Footer (at bottom, clear of menu items)
+    // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 62, "UP/DN:Select OK:Go BACK:Exit");
+    canvas_draw_str(canvas, 5, 57, "U/D:Select K:Go B:Exit");
+    canvas_draw_str(canvas, 5, 63, "LB:Exit");
 }
 
 // Draw slot list
@@ -579,8 +582,8 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
     snprintf(header, sizeof(header), "Slots (%ld total)", app->total_slots);
     canvas_draw_str(canvas, 5, 10, header);
     
-    // Calculate visible slots (5 per screen)
-    int32_t visible_count = 5;
+    // Calculate visible slots (4 per screen to leave room for footer)
+    int32_t visible_count = 4;
     int32_t start_index = app->scroll_offset;
     int32_t end_index = start_index + visible_count;
     if(end_index > app->total_slots) {
@@ -588,12 +591,19 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
     }
     
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 20;
+    int32_t y = 18;  // Start slightly higher
     
     // Don't update cache during draw - only read from cache
     // Cache should be updated before entering this view
     
-    for(int32_t i = start_index; i < end_index; i++) {
+    // Ensure we only show exactly 4 items (or fewer if total_slots < 4)
+    int32_t items_to_show = (end_index - start_index);
+    if(items_to_show > 4) {
+        items_to_show = 4;
+        end_index = start_index + 4;
+    }
+    
+    for(int32_t i = start_index; i < end_index && (i - start_index) < 4; i++) {
         char line[80];  // Increased buffer size
         Slot* slot = flipchanger_get_slot(app, i);
         
@@ -617,12 +627,13 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
             canvas_invert_color(canvas);
         }
         
-        y += 10;
+        y += 11;  // Slightly more spacing to ensure clear separation
     }
     
-    // Footer
+    // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 60, "UP/DN:Nav OK:View BACK:Menu");
+    canvas_draw_str(canvas, 5, 57, "U/D:Nav K:View B:Return");
+    canvas_draw_str(canvas, 5, 63, "LB:Exit");
 }
 
 // Draw slot details
@@ -659,49 +670,81 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         return;
     }
     
-    // CD information
+    // CD information - scrollable list (show 3 items at a time)
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 22;
+    
+    // Build list of fields to display
+    typedef struct {
+        const char* label;
+        char value[64];
+        bool visible;
+    } DetailField;
+    
+    DetailField fields[5];
+    int32_t field_count = 0;
     
     // Artist
-    canvas_draw_str(canvas, 5, y, "Artist:");
     if(strlen(slot->cd.artist) > 0) {
-        canvas_draw_str(canvas, 35, y, slot->cd.artist);
+        fields[field_count].label = "Artist:";
+        strncpy(fields[field_count].value, slot->cd.artist, sizeof(fields[field_count].value) - 1);
+        fields[field_count].value[sizeof(fields[field_count].value) - 1] = '\0';
+        fields[field_count].visible = true;
+        field_count++;
     }
-    y += 10;
     
     // Album
-    canvas_draw_str(canvas, 5, y, "Album:");
     if(strlen(slot->cd.album) > 0) {
-        canvas_draw_str(canvas, 35, y, slot->cd.album);
+        fields[field_count].label = "Album:";
+        strncpy(fields[field_count].value, slot->cd.album, sizeof(fields[field_count].value) - 1);
+        fields[field_count].value[sizeof(fields[field_count].value) - 1] = '\0';
+        fields[field_count].visible = true;
+        field_count++;
     }
-    y += 10;
     
     // Year
     if(slot->cd.year > 0) {
-        char year_str[24];
-        snprintf(year_str, sizeof(year_str), "Year: %ld", (long)slot->cd.year);
-        canvas_draw_str(canvas, 5, y, year_str);
-        y += 10;
+        fields[field_count].label = "Year:";
+        snprintf(fields[field_count].value, sizeof(fields[field_count].value), "%ld", (long)slot->cd.year);
+        fields[field_count].visible = true;
+        field_count++;
     }
     
     // Genre
     if(strlen(slot->cd.genre) > 0) {
-        canvas_draw_str(canvas, 5, y, "Genre:");
-        canvas_draw_str(canvas, 35, y, slot->cd.genre);
-        y += 10;
+        fields[field_count].label = "Genre:";
+        strncpy(fields[field_count].value, slot->cd.genre, sizeof(fields[field_count].value) - 1);
+        fields[field_count].value[sizeof(fields[field_count].value) - 1] = '\0';
+        fields[field_count].visible = true;
+        field_count++;
     }
     
     // Tracks
     if(slot->cd.track_count > 0) {
-        char tracks_str[32];
-        snprintf(tracks_str, sizeof(tracks_str), "Tracks: %ld", (long)slot->cd.track_count);
-        canvas_draw_str(canvas, 5, y, tracks_str);
+        fields[field_count].label = "Tracks:";
+        snprintf(fields[field_count].value, sizeof(fields[field_count].value), "%ld", (long)slot->cd.track_count);
+        fields[field_count].visible = true;
+        field_count++;
     }
     
-    // Footer
+    // Show 3 items at a time with scrolling
+    const int32_t VISIBLE_ITEMS = 3;
+    int32_t start_index = app->details_scroll_offset;
+    int32_t end_index = start_index + VISIBLE_ITEMS;
+    if(end_index > field_count) {
+        end_index = field_count;
+    }
+    
+    int32_t y = 22;
+    for(int32_t i = start_index; i < end_index; i++) {
+        canvas_draw_str(canvas, 5, y, fields[i].label);
+        canvas_draw_str(canvas, 35, y, fields[i].value);
+        y += 10;
+    }
+    
+    // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 60, "OK:Edit BACK:Return");
+    canvas_draw_str(canvas, 5, 57, "U/D:Scroll K:Edit B:Return");
+    canvas_draw_str(canvas, 5, 63, "LB:Exit");
 }
 
 // Draw callback
@@ -730,6 +773,12 @@ void flipchanger_draw_callback(Canvas* canvas, void* ctx) {
         case VIEW_TRACK_MANAGEMENT:
             flipchanger_draw_track_management(canvas, app);
             break;
+        case VIEW_SETTINGS:
+            flipchanger_draw_settings(canvas, app);
+            break;
+        case VIEW_STATISTICS:
+            flipchanger_draw_statistics(canvas, app);
+            break;
         default:
             canvas_clear(canvas);
             canvas_set_font(canvas, FontPrimary);
@@ -753,10 +802,13 @@ void flipchanger_show_slot_list(FlipChangerApp* app) {
 void flipchanger_show_slot_details(FlipChangerApp* app, int32_t slot_index) {
     app->current_view = VIEW_SLOT_DETAILS;
     app->current_slot_index = slot_index;
+    app->details_scroll_offset = 0;
 }
 
 // Character set for text input
+// Special: Last character index will be used for DEL (delete)
 static const char* CHAR_SET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .-,";
+#define CHAR_DEL_INDEX ((int32_t)strlen(CHAR_SET))  // DEL is one past the end of the set
 
 void flipchanger_show_add_edit(FlipChangerApp* app, int32_t slot_index, bool is_new) {
     app->current_view = VIEW_ADD_EDIT_CD;
@@ -764,6 +816,7 @@ void flipchanger_show_add_edit(FlipChangerApp* app, int32_t slot_index, bool is_
     app->edit_field = FIELD_ARTIST;
     app->edit_char_pos = 0;
     app->edit_char_selection = 0;
+    app->edit_field_scroll = 0;
     app->edit_selected_track = 0;
     app->editing_track = false;
     app->edit_track_field = TRACK_FIELD_TITLE;
@@ -829,7 +882,7 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     canvas_draw_str(canvas, 5, 10, title);
     
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 22;
+    int32_t y = 18;  // Start higher to leave room for footer
     
     // Field labels and values
     const char* field_labels[] = {
@@ -875,14 +928,20 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             int32_t x_pos = 40;
             canvas_draw_str(canvas, x_pos, y, year_str);
             if(is_selected) {
-                int32_t cursor_x = x_pos + (app->edit_char_pos * 6);
+                // Show cursor at end of year string
+                int32_t year_len = strlen(year_str);
+                int32_t cursor_x = x_pos + (year_len * 6);
                 if(cursor_x < 128) {
                     canvas_draw_line(canvas, cursor_x, y, cursor_x, y - 8);
                 }
                 
-                // Show number picker (0-9)
-                if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
-                    int32_t digit = app->edit_char_selection - 26;
+                // Show number picker (0-9) - ensure selection is in valid range
+                int32_t char_selection = app->edit_char_selection;
+                if(char_selection < 26 || char_selection >= 36) {
+                    char_selection = 26; // Default to '0' if out of range
+                }
+                if(char_selection >= 26 && char_selection < 36) {
+                    int32_t digit = char_selection - 26;
                     char digit_display[4];
                     snprintf(digit_display, sizeof(digit_display), "[%ld]", (long)digit);
                     canvas_draw_str(canvas, 100, y, digit_display);
@@ -907,37 +966,91 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
                 default: max_len = 32; break;
             }
             
-            // Display value (truncate if too long for display)
+            // Display value with scrolling for long text
             if(value) {
                 // Ensure string is null-terminated
                 value[max_len - 1] = '\0';
                 
-                char display[64];
-                snprintf(display, sizeof(display), "%.30s", value);
-                canvas_draw_str(canvas, 40, y, display);
+                int32_t value_len = strlen(value);
                 
-                // Show cursor position
+                // Calculate visible width: screen is 128px, text starts at x=40, char picker at x=90 (38px)
+                // So we have about 50px for text = ~8-9 characters (FontSecondary is ~6px per char)
+                // Let's use 12 characters to be safe (leaves room for char picker)
+                const int32_t VISIBLE_CHARS = 12;
+                
+                // Auto-scroll to keep cursor visible when editing
                 if(is_selected) {
                     // Ensure cursor position is within bounds
-                    int32_t value_len = strlen(value);
                     if(app->edit_char_pos > value_len) {
                         app->edit_char_pos = value_len;
                     }
                     
-                    int32_t x_pos = 40 + (app->edit_char_pos * 6);
-                    if(x_pos < 128 && x_pos >= 40) {
+                    // Auto-scroll: if cursor is before visible area, scroll left
+                    if(app->edit_char_pos < app->edit_field_scroll) {
+                        app->edit_field_scroll = app->edit_char_pos;
+                    }
+                    // Auto-scroll: if cursor is at or after visible area, scroll right
+                    else if(app->edit_char_pos >= app->edit_field_scroll + VISIBLE_CHARS) {
+                        app->edit_field_scroll = app->edit_char_pos - VISIBLE_CHARS + 1;
+                    }
+                    // Also scroll if cursor is at the end of visible area
+                    else if(app->edit_char_pos == app->edit_field_scroll + VISIBLE_CHARS - 1 && 
+                            app->edit_char_pos < value_len) {
+                        // If we're at the last visible character and there's more text, scroll forward
+                        if(value_len > VISIBLE_CHARS) {
+                            app->edit_field_scroll = app->edit_char_pos - VISIBLE_CHARS + 2;
+                        }
+                    }
+                    
+                    // Ensure scroll doesn't go negative or beyond text
+                    if(app->edit_field_scroll < 0) {
+                        app->edit_field_scroll = 0;
+                    }
+                    int32_t max_scroll = (value_len > VISIBLE_CHARS) ? value_len - VISIBLE_CHARS : 0;
+                    if(app->edit_field_scroll > max_scroll) {
+                        app->edit_field_scroll = max_scroll;
+                    }
+                }
+                
+                // Calculate display start and length
+                int32_t display_start = app->edit_field_scroll;
+                int32_t display_len = value_len - display_start;
+                if(display_len > VISIBLE_CHARS) {
+                    display_len = VISIBLE_CHARS;
+                }
+                
+                // Display the visible portion
+                char display[64];
+                if(display_start < value_len && display_len > 0) {
+                    // Copy visible portion
+                    strncpy(display, value + display_start, display_len);
+                    display[display_len] = '\0';
+                } else {
+                    display[0] = '\0';
+                }
+                
+                canvas_draw_str(canvas, 40, y, display);
+                
+                // Show cursor position (relative to visible area)
+                if(is_selected) {
+                    int32_t cursor_rel_pos = app->edit_char_pos - app->edit_field_scroll;
+                    int32_t x_pos = 40 + (cursor_rel_pos * 6);
+                    if(x_pos >= 40 && x_pos < 90) {  // Only show if within visible area
                         canvas_draw_line(canvas, x_pos, y, x_pos, y - 8);
                     }
                     
-                    // Show character picker (only if not navigating)
+                    // Show character picker (including DEL option)
                     int32_t char_set_len = strlen(CHAR_SET);
                     if(char_set_len > 0) {
-                        if(app->edit_char_selection > 0 || value_len == 0 || app->edit_char_pos < value_len) {
-                            int32_t char_idx = app->edit_char_selection % char_set_len;
-                            char char_display[4];
-                            snprintf(char_display, sizeof(char_display), "[%c]", CHAR_SET[char_idx]);
-                            canvas_draw_str(canvas, 100, y, char_display);
+                        char char_display[8];
+                        if(app->edit_char_selection >= CHAR_DEL_INDEX) {
+                            // Show DEL
+                            snprintf(char_display, sizeof(char_display), "[DEL]");
+                        } else {
+                            // Show selected character
+                            snprintf(char_display, sizeof(char_display), "[%c]", CHAR_SET[app->edit_char_selection]);
                         }
+                        canvas_draw_str(canvas, 90, y, char_display);
                     }
                 }
             }
@@ -956,12 +1069,12 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             canvas_invert_color(canvas);
         }
         
-        y += 9;  // Reduced spacing to fit more fields
+        y += 6;  // Very tight spacing to fit all fields and leave room for footer
     }
     
-    // Save button - moved up to prevent overlap
+    // Save button - positioned to avoid footer overlap
     bool save_selected = (app->edit_field == FIELD_SAVE);
-    y = 54;  // Moved up from 60 to make room for footer
+    y = 46;  // Positioned above footer (footer at y=62, needs ~8px clearance)
     if(save_selected) {
         canvas_draw_box(canvas, 2, y - 8, 124, 8);
         canvas_invert_color(canvas);
@@ -971,12 +1084,30 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         canvas_invert_color(canvas);
     }
     
-    // Footer
+    // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
     if(app->edit_field == FIELD_TRACKS) {
-        canvas_draw_str(canvas, 5, 64, "OK:Manage Tracks");
+        canvas_draw_str(canvas, 5, 57, "K:Tracks B:Return");
+        canvas_draw_str(canvas, 5, 63, "LB:Exit");
+    } else if(app->edit_field == FIELD_ARTIST || app->edit_field == FIELD_ALBUM || 
+                app->edit_field == FIELD_GENRE || app->edit_field == FIELD_NOTES) {
+        // Field editing mode - show different hint based on state
+        if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
+            // Navigation mode
+            canvas_draw_str(canvas, 5, 57, "U/D:Field K:Edit B:Return");
+            canvas_draw_str(canvas, 5, 63, "LB:Exit");
+        } else {
+            // Editing mode
+            canvas_draw_str(canvas, 5, 57, "U/D:Char K:Add B:Return");
+            canvas_draw_str(canvas, 5, 63, "LB:Exit");
+        }
+    } else if(app->edit_field == FIELD_YEAR) {
+        // Year field - numeric only
+        canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add B:Del");
+        canvas_draw_str(canvas, 5, 63, "LB:Exit");
     } else {
-        canvas_draw_str(canvas, 5, 64, "UP/DN:Field LEFT/R:Pos OK:Add BACK:Del");
+        canvas_draw_str(canvas, 5, 57, "U/D:Field K:Add B:Return");
+        canvas_draw_str(canvas, 5, 63, "LB:Exit");
     }
 }
 
@@ -1052,12 +1183,92 @@ void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
         y += 10;
     }
     
-    // Footer
+    // Show editing interface if editing a track
+    if(app->editing_track && app->edit_selected_track >= 0 && app->edit_selected_track < slot->cd.track_count) {
+        Track* track = &slot->cd.tracks[app->edit_selected_track];
+        if(track) {
+            canvas_set_font(canvas, FontSecondary);
+            int32_t edit_y = 50;
+            
+            // Show which field is being edited
+            if(app->edit_track_field == TRACK_FIELD_TITLE) {
+                canvas_draw_str(canvas, 5, edit_y, "Title:");
+                char* field = track->title;
+                int32_t field_len = strlen(field);
+                
+                // Display with scrolling
+                const int32_t VISIBLE_CHARS = 15;
+                int32_t display_start = 0;
+                int32_t display_len = field_len;
+                if(display_len > VISIBLE_CHARS) {
+                    display_len = VISIBLE_CHARS;
+                    // Auto-scroll to keep cursor visible
+                    if(app->edit_char_pos >= VISIBLE_CHARS) {
+                        display_start = app->edit_char_pos - VISIBLE_CHARS + 1;
+                        display_len = VISIBLE_CHARS;
+                    }
+                }
+                
+                char display[64];
+                if(display_start < field_len && display_len > 0) {
+                    strncpy(display, field + display_start, display_len);
+                    display[display_len] = '\0';
+                } else {
+                    display[0] = '\0';
+                }
+                
+                canvas_draw_str(canvas, 40, edit_y, display);
+                
+                // Show cursor
+                int32_t cursor_rel_pos = app->edit_char_pos - display_start;
+                int32_t x_pos = 40 + (cursor_rel_pos * 6);
+                if(x_pos >= 40 && x_pos < 120) {
+                    canvas_draw_line(canvas, x_pos, edit_y, x_pos, edit_y - 8);
+                }
+                
+                // Show character picker
+                int32_t char_set_len = strlen(CHAR_SET);
+                if(char_set_len > 0) {
+                    char char_display[8];
+                    if(app->edit_char_selection >= CHAR_DEL_INDEX) {
+                        snprintf(char_display, sizeof(char_display), "[DEL]");
+                    } else {
+                        snprintf(char_display, sizeof(char_display), "[%c]", CHAR_SET[app->edit_char_selection]);
+                    }
+                    canvas_draw_str(canvas, 100, edit_y, char_display);
+                }
+            } else {
+                // Duration field - numeric only (seconds)
+                canvas_draw_str(canvas, 5, edit_y, "Duration (sec):");
+                char* field = track->duration;
+                
+                // Display duration value
+                canvas_draw_str(canvas, 70, edit_y, field);
+                
+                // Show number picker (0-9 only for duration)
+                if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
+                    int32_t digit = app->edit_char_selection - 26;
+                    char digit_display[4];
+                    snprintf(digit_display, sizeof(digit_display), "[%ld]", (long)digit);
+                    canvas_draw_str(canvas, 100, edit_y, digit_display);
+                }
+            }
+        }
+    }
+    
+    // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
     if(app->editing_track) {
-        canvas_draw_str(canvas, 5, 64, "OK:Confirm BACK:Cancel");
+        if(app->edit_track_field == TRACK_FIELD_DURATION) {
+            canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add B:Switch");
+            canvas_draw_str(canvas, 5, 63, "LB:Exit");
+        } else {
+            canvas_draw_str(canvas, 5, 57, "U/D:Char K:Add B:Switch");
+            canvas_draw_str(canvas, 5, 63, "LB:Exit");
+        }
     } else {
-        canvas_draw_str(canvas, 5, 64, "OK:Edit +:Add -:Del BACK:Return");
+        canvas_draw_str(canvas, 5, 57, "K:Edit +:Add -:Del B:Return");
+        canvas_draw_str(canvas, 5, 63, "LB:Exit");
     }
 }
 
@@ -1070,7 +1281,11 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
         return;
     }
     
-    if(input_event->type != InputTypePress) {
+    // Handle both short press and long press
+    bool is_long_press = (input_event->type == InputTypeLong || input_event->type == InputTypeRepeat);
+    bool is_short_press = (input_event->type == InputTypePress);
+    
+    if(!is_short_press && !is_long_press) {
         return;
     }
     
@@ -1115,8 +1330,8 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                 if(app->selected_index < app->total_slots - 1) {
                     app->selected_index++;
                     // Auto-scroll
-                    if(app->selected_index >= app->scroll_offset + 5) {
-                        app->scroll_offset = app->selected_index - 4;
+                    if(app->selected_index >= app->scroll_offset + 4) {
+                        app->scroll_offset = app->selected_index - 3;
                     }
                 }
             } else if(input_event->key == InputKeyOk) {
@@ -1188,9 +1403,11 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 } else if(input_event->key == InputKeyUp) {
                     app->edit_field = FIELD_TRACKS;
+                    app->edit_field_scroll = 0;
                 } else if(input_event->key == InputKeyDown) {
                     // Wrap to top
                     app->edit_field = FIELD_ARTIST;
+                    app->edit_field_scroll = 0;
                 } else if(input_event->key == InputKeyBack) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 }
@@ -1203,51 +1420,118 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     app->editing_track = false;
                 } else if(input_event->key == InputKeyUp) {
                     app->edit_field = FIELD_NOTES;
+                    app->edit_field_scroll = 0;
                 } else if(input_event->key == InputKeyDown) {
                     app->edit_field = FIELD_SAVE;
+                    app->edit_field_scroll = 0;
                 } else if(input_event->key == InputKeyBack) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 }
             } else if(app->edit_field == FIELD_YEAR) {
-                // Year field - special handling
+                // Year field - numeric only (0-9)
+                // Initialize to '0' if not already in number range
+                if(app->edit_char_selection < 26 || app->edit_char_selection >= 36) {
+                    app->edit_char_selection = 26; // Start at '0'
+                }
+                
                 if(input_event->key == InputKeyUp) {
-                    // Navigate to previous field
-                    app->edit_field = FIELD_GENRE;
-                    app->edit_char_pos = 0;
-                    app->edit_char_selection = 0;
+                    // Navigate to previous field if at start (0), otherwise change number selection
+                    if(app->edit_char_selection == 26) {
+                        // At start (0) - navigate to previous field
+                        app->edit_field = FIELD_ALBUM;
+                        app->edit_char_pos = 0;
+                        app->edit_char_selection = 0;
+                        app->edit_field_scroll = 0;
+                    } else {
+                        // Change number selection (previous number, 0-9)
+                        app->edit_char_selection--;
+                    }
                 } else if(input_event->key == InputKeyDown) {
-                    // Navigate to next field
-                    app->edit_field = FIELD_GENRE;
-                    app->edit_char_pos = 0;
-                    app->edit_char_selection = 0;
+                    // Navigate to next field if at start (0), otherwise change number selection
+                    if(app->edit_char_selection == 26) {
+                        // At start (0) - navigate to next field
+                        app->edit_field = FIELD_GENRE;
+                        app->edit_char_pos = 0;
+                        app->edit_char_selection = 0;
+                        app->edit_field_scroll = 0;
+                    } else {
+                        // Change number selection (next number, 0-9)
+                        if(app->edit_char_selection < 35) {
+                            app->edit_char_selection++;
+                        } else {
+                            app->edit_char_selection = 26; // Wrap to 0
+                        }
+                    }
                 } else if(input_event->key == InputKeyOk) {
-                    // Cycle through numbers 0-9 (if char_selection is in number range)
-                    // For now, allow any char_selection >= 26 to be a number
-                    if(app->edit_char_selection >= 26) {
-                        int32_t digit = (app->edit_char_selection - 26) % 10;
+                    // Add digit to year
+                    if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
+                        // Number selected (0-9)
+                        int32_t digit = app->edit_char_selection - 26;
                         slot->cd.year = slot->cd.year * 10 + digit;
                         if(slot->cd.year > 9999) slot->cd.year = 9999;
-                        app->edit_char_selection = 26;  // Reset to '0'
+                        app->dirty = true;
                     }
                 } else if(input_event->key == InputKeyBack) {
-                    // Delete last digit
-                    slot->cd.year = slot->cd.year / 10;
+                    if(is_long_press) {
+                        // Long press - exit to slot details
+                        flipchanger_show_slot_details(app, app->current_slot_index);
+                    } else {
+                        // Short press - delete last digit
+                        slot->cd.year = slot->cd.year / 10;
+                        app->dirty = true;
+                    }
                 }
             } else {
-                // Editing a field (Artist, Album, Genre, Notes, Year)
-                // UP/DOWN changes character selection, OK adds character
-                // To navigate fields: Use BACK to exit, or navigate via Save/Tracks fields
+                // Editing a field (Artist, Album, Genre, Notes)
+                // UP/DOWN: Navigate fields if not actively editing, otherwise change character selection
+                // BACK exits field editing - allows navigation to other fields
                 if(input_event->key == InputKeyUp) {
-                    // Change character selection (previous character)
-                    int32_t char_set_len = strlen(CHAR_SET);
-                    if(char_set_len > 0) {
-                        app->edit_char_selection = (app->edit_char_selection - 1 + char_set_len) % char_set_len;
+                    // If at default state (cursor at 0, selection at 0), navigate to previous field
+                    // Otherwise, change character selection
+                    if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
+                        // Navigate to previous field
+                        if(app->edit_field == FIELD_ARTIST) {
+                            app->edit_field = FIELD_NOTES;  // Wrap to bottom
+                        } else if(app->edit_field == FIELD_ALBUM) {
+                            app->edit_field = FIELD_ARTIST;
+                        } else if(app->edit_field == FIELD_GENRE) {
+                            app->edit_field = FIELD_ALBUM;
+                        } else if(app->edit_field == FIELD_NOTES) {
+                            app->edit_field = FIELD_GENRE;
+                        }
+                        app->edit_field_scroll = 0;
+                    } else {
+                        // Change character selection (previous character, including DEL)
+                        int32_t max_selection = CHAR_DEL_INDEX;  // Can select up to DEL
+                        if(app->edit_char_selection > 0) {
+                            app->edit_char_selection--;
+                        } else {
+                            app->edit_char_selection = max_selection;  // Wrap to DEL
+                        }
                     }
                 } else if(input_event->key == InputKeyDown) {
-                    // Change character selection (next character)
-                    int32_t char_set_len = strlen(CHAR_SET);
-                    if(char_set_len > 0) {
-                        app->edit_char_selection = (app->edit_char_selection + 1) % char_set_len;
+                    // If at default state (cursor at 0, selection at 0), navigate to next field
+                    // Otherwise, change character selection
+                    if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
+                        // Navigate to next field
+                        if(app->edit_field == FIELD_ARTIST) {
+                            app->edit_field = FIELD_ALBUM;
+                        } else if(app->edit_field == FIELD_ALBUM) {
+                            app->edit_field = FIELD_GENRE;
+                        } else if(app->edit_field == FIELD_GENRE) {
+                            app->edit_field = FIELD_NOTES;
+                        } else if(app->edit_field == FIELD_NOTES) {
+                            app->edit_field = FIELD_TRACKS;  // Next is Tracks
+                        }
+                        app->edit_field_scroll = 0;
+                    } else {
+                        // Change character selection (next character, including DEL)
+                        int32_t max_selection = CHAR_DEL_INDEX;  // Can select up to DEL
+                        if(app->edit_char_selection < max_selection) {
+                            app->edit_char_selection++;
+                        } else {
+                            app->edit_char_selection = 0;  // Wrap to start
+                        }
                     }
                 } else if(input_event->key == InputKeyLeft) {
                     // Move cursor left
@@ -1293,7 +1577,7 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                         // Don't reset char_selection - keep current selection
                     }
                 } else if(input_event->key == InputKeyOk) {
-                    // Add/insert character
+                    // Add/insert character or DELETE
                     if(app->edit_field == FIELD_YEAR) {
                         // Year input (numeric)
                         if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
@@ -1328,69 +1612,62 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                                 break;
                         }
                         
-                        if(field && app->edit_char_pos >= 0 && app->edit_char_pos < max_len - 1) {
-                            // Ensure field is null-terminated
-                            field[max_len - 1] = '\0';
-                            
-                            int32_t len = strlen(field);
-                            
-                            // Ensure cursor position is within bounds
-                            if(app->edit_char_pos > len) {
-                                app->edit_char_pos = len;
-                            }
-                            
-                            int32_t char_set_len = strlen(CHAR_SET);
-                            if(char_set_len > 0) {
-                                char ch = CHAR_SET[app->edit_char_selection % char_set_len];
-                                
-                                // Insert character at cursor position
-                                if(app->edit_char_pos <= len && len < max_len - 1) {
-                                    // Shift existing characters
-                                    for(int32_t i = len; i >= app->edit_char_pos && i < max_len - 2; i--) {
-                                        field[i + 1] = field[i];
+                        if(field) {
+                            // Check if DEL is selected
+                            if(app->edit_char_selection >= CHAR_DEL_INDEX) {
+                                // DELETE character at cursor
+                                int32_t len = strlen(field);
+                                if(app->edit_char_pos < len && app->edit_char_pos >= 0) {
+                                    // Delete character at cursor
+                                    for(int32_t i = app->edit_char_pos; i < len; i++) {
+                                        field[i] = field[i + 1];
                                     }
+                                } else if(app->edit_char_pos > 0 && len > 0) {
+                                    // Delete character before cursor
+                                    app->edit_char_pos--;
+                                    for(int32_t i = app->edit_char_pos; i < len; i++) {
+                                        field[i] = field[i + 1];
+                                    }
+                                }
+                            } else if(app->edit_char_pos >= 0 && app->edit_char_pos < max_len - 1) {
+                                // Insert character
+                                // Ensure field is null-terminated
+                                field[max_len - 1] = '\0';
+                                
+                                int32_t len = strlen(field);
+                                
+                                // Ensure cursor position is within bounds
+                                if(app->edit_char_pos > len) {
+                                    app->edit_char_pos = len;
+                                }
+                                
+                                int32_t char_set_len = strlen(CHAR_SET);
+                                if(char_set_len > 0 && app->edit_char_selection < char_set_len) {
+                                    char ch = CHAR_SET[app->edit_char_selection];
+                                    
+                                    // Insert character at cursor position
+                                    if(app->edit_char_pos <= len && len < max_len - 1) {
+                                        // Shift existing characters
+                                        for(int32_t i = len; i >= app->edit_char_pos && i < max_len - 2; i--) {
+                                            field[i + 1] = field[i];
+                                        }
                                     field[app->edit_char_pos] = ch;
                                     field[len + 1] = '\0';
                                     if(app->edit_char_pos < max_len - 2) {
                                         app->edit_char_pos++;
                                     }
+                                    // Trigger scroll update on next draw by ensuring cursor is visible
+                                    // The draw function will handle auto-scrolling
                                 }
                             }
                         }
                     }
+                }
                 } else if(input_event->key == InputKeyBack) {
-                    // Delete character at cursor
-                    if(app->edit_field == FIELD_YEAR) {
-                        // Delete digit from year
-                        slot->cd.year = slot->cd.year / 10;
-                        if(app->edit_char_pos > 0) app->edit_char_pos--;
-                    } else {
-                        char* field = NULL;
-                        
-                        switch(app->edit_field) {
-                            case FIELD_ARTIST: field = slot->cd.artist; break;
-                            case FIELD_ALBUM: field = slot->cd.album; break;
-                            case FIELD_GENRE: field = slot->cd.genre; break;
-                            case FIELD_NOTES: field = slot->cd.notes; break;
-                            default: break;
-                        }
-                        
-                        if(field) {
-                            int32_t len = strlen(field);
-                            if(app->edit_char_pos < len && app->edit_char_pos >= 0) {
-                                // Delete character at cursor
-                                for(int32_t i = app->edit_char_pos; i < len; i++) {
-                                    field[i] = field[i + 1];
-                                }
-                            } else if(app->edit_char_pos > 0 && len > 0) {
-                                // Delete character before cursor
-                                app->edit_char_pos--;
-                                for(int32_t i = app->edit_char_pos; i < len; i++) {
-                                    field[i] = field[i + 1];
-                                }
-                            }
-                        }
-                    }
+                    // BACK exits field editing - returns to slot details view
+                    // Changes are preserved and will be saved when navigating away or on app exit
+                    // To delete characters, use DEL option in character selector, then OK
+                    flipchanger_show_slot_details(app, app->current_slot_index);
                 }
             }
             
@@ -1405,7 +1682,11 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             // Safety check - ensure slot index is valid
             if(app->current_slot_index < 0 || app->current_slot_index >= app->total_slots) {
                 if(input_event->key == InputKeyBack) {
-                    app->current_view = VIEW_ADD_EDIT_CD;
+                    if(is_long_press) {
+                        app->current_view = VIEW_SLOT_LIST;
+                    } else {
+                        app->current_view = VIEW_ADD_EDIT_CD;
+                    }
                 }
                 break;
             }
@@ -1413,7 +1694,11 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
             if(!slot) {
                 if(input_event->key == InputKeyBack) {
-                    app->current_view = VIEW_ADD_EDIT_CD;
+                    if(is_long_press) {
+                        app->current_view = VIEW_SLOT_LIST;
+                    } else {
+                        app->current_view = VIEW_ADD_EDIT_CD;
+                    }
                 }
                 break;
             }
@@ -1430,15 +1715,194 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             
             if(app->editing_track) {
                 // Editing track title or duration
-                if(input_event->key == InputKeyOk) {
+                Track* track = &slot->cd.tracks[app->edit_selected_track];
+                if(!track) {
                     app->editing_track = false;
-                } else if(input_event->key == InputKeyBack) {
-                    app->editing_track = false;
-                } else if(input_event->key == InputKeyUp || input_event->key == InputKeyDown) {
-                    // Switch between title and duration
-                    app->edit_track_field = (app->edit_track_field == TRACK_FIELD_TITLE) ? TRACK_FIELD_DURATION : TRACK_FIELD_TITLE;
+                    break;
                 }
-                // TODO: Add character input for track editing
+                
+                // Ensure edit_track_field is valid
+                int32_t track_field_int = (int32_t)app->edit_track_field;
+                if(track_field_int < (int32_t)TRACK_FIELD_TITLE || 
+                   track_field_int >= (int32_t)TRACK_FIELD_COUNT) {
+                    app->edit_track_field = TRACK_FIELD_TITLE;
+                }
+                
+                // Ensure cursor position is valid
+                if(app->edit_char_pos < 0) {
+                    app->edit_char_pos = 0;
+                }
+                
+                // Ensure char_selection is valid
+                if(app->edit_char_selection < 0) {
+                    app->edit_char_selection = 0;
+                }
+                
+                char* field = NULL;
+                int32_t max_len = 0;
+                
+                if(app->edit_track_field == TRACK_FIELD_TITLE) {
+                    field = track->title;
+                    max_len = MAX_TRACK_TITLE_LENGTH;
+                } else if(app->edit_track_field == TRACK_FIELD_DURATION) {
+                    field = track->duration;
+                    max_len = 16; // Max length for duration string
+                }
+                
+                if(!field) {
+                    app->editing_track = false;
+                    break;
+                }
+                
+                if(input_event->key == InputKeyUp) {
+                    // Change character selection (including DEL)
+                    int32_t max_selection = CHAR_DEL_INDEX;
+                    if(app->edit_char_selection > 0) {
+                        app->edit_char_selection--;
+                    } else {
+                        app->edit_char_selection = max_selection;
+                    }
+                } else if(input_event->key == InputKeyDown) {
+                    // Change character selection (including DEL)
+                    int32_t max_selection = CHAR_DEL_INDEX;
+                    if(app->edit_char_selection < max_selection) {
+                        app->edit_char_selection++;
+                    } else {
+                        app->edit_char_selection = 0;
+                    }
+                } else if(input_event->key == InputKeyLeft) {
+                    // Move cursor left, or switch to previous field if at start
+                    if(app->edit_char_pos > 0) {
+                        app->edit_char_pos--;
+                    } else {
+                        // At start of field - switch to other field
+                        if(app->edit_track_field == TRACK_FIELD_DURATION) {
+                            app->edit_track_field = TRACK_FIELD_TITLE;
+                            app->edit_char_pos = 0;
+                            app->edit_char_selection = 0;
+                        }
+                    }
+                } else if(input_event->key == InputKeyRight) {
+                    // Move cursor right, or switch to next field if at end
+                    int32_t field_len = strlen(field);
+                    if(app->edit_char_pos < field_len && app->edit_char_pos < max_len - 1) {
+                        app->edit_char_pos++;
+                    } else if(app->edit_char_pos == field_len && app->edit_char_pos < max_len - 1) {
+                        app->edit_char_pos = field_len;
+                    } else {
+                        // At end of field - switch to other field
+                        if(app->edit_track_field == TRACK_FIELD_TITLE) {
+                            app->edit_track_field = TRACK_FIELD_DURATION;
+                            app->edit_char_pos = 0;
+                            app->edit_char_selection = 26; // Start at '0' for numeric input
+                        }
+                    }
+                } else if(input_event->key == InputKeyOk) {
+                    // Add/insert character or DELETE
+                    // For duration field, handle numeric input
+                    if(app->edit_track_field == TRACK_FIELD_DURATION) {
+                        // Duration is numeric only (seconds)
+                        if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
+                            // Number selected (0-9)
+                            int32_t digit = app->edit_char_selection - 26;
+                            // Convert duration string to number, add digit, convert back
+                            int32_t current_seconds = 0;
+                            if(strlen(track->duration) > 0) {
+                                current_seconds = atoi(track->duration);
+                            }
+                            current_seconds = current_seconds * 10 + digit;
+                            // Limit to reasonable max (99999 seconds = ~27 hours)
+                            if(current_seconds > 99999) current_seconds = 99999;
+                            snprintf(track->duration, sizeof(track->duration), "%ld", (long)current_seconds);
+                            app->dirty = true;
+                        }
+                    } else if(app->edit_char_selection >= CHAR_DEL_INDEX) {
+                        // DELETE character at cursor
+                        int32_t len = strlen(field);
+                        if(app->edit_char_pos < len && app->edit_char_pos >= 0) {
+                            for(int32_t i = app->edit_char_pos; i < len; i++) {
+                                field[i] = field[i + 1];
+                            }
+                        } else if(app->edit_char_pos > 0 && len > 0) {
+                            app->edit_char_pos--;
+                            for(int32_t i = app->edit_char_pos; i < len; i++) {
+                                field[i] = field[i + 1];
+                            }
+                        }
+                        app->dirty = true;
+                    } else if(app->edit_track_field == TRACK_FIELD_TITLE && 
+                              app->edit_char_pos >= 0 && app->edit_char_pos < max_len - 1) {
+                        // Insert character (for title field only - duration is numeric)
+                        field[max_len - 1] = '\0';
+                        int32_t len = strlen(field);
+                        if(app->edit_char_pos > len) {
+                            app->edit_char_pos = len;
+                        }
+                        int32_t char_set_len = strlen(CHAR_SET);
+                        if(char_set_len > 0 && app->edit_char_selection < char_set_len) {
+                            char ch = CHAR_SET[app->edit_char_selection];
+                            if(app->edit_char_pos <= len && len < max_len - 1) {
+                                for(int32_t i = len; i >= app->edit_char_pos && i < max_len - 2; i--) {
+                                    field[i + 1] = field[i];
+                                }
+                                field[app->edit_char_pos] = ch;
+                                field[len + 1] = '\0';
+                                if(app->edit_char_pos < max_len - 2) {
+                                    app->edit_char_pos++;
+                                }
+                            }
+                        }
+                        app->dirty = true;
+                    }
+                } else if(input_event->key == InputKeyBack) {
+                    if(is_long_press) {
+                        // Long press BACK - exit track editing mode
+                        app->editing_track = false;
+                        app->edit_char_pos = 0;
+                        app->edit_char_selection = 0;
+                    } else {
+                        // Short press BACK behavior:
+                        // - If at start of field, switch to other field
+                        // - If not at start, delete character/digit
+                        if(app->edit_char_pos == 0) {
+                            // At start - switch to other field
+                            if(app->edit_track_field == TRACK_FIELD_TITLE) {
+                                app->edit_track_field = TRACK_FIELD_DURATION;
+                                app->edit_char_selection = 26; // Start at '0' for numeric input
+                            } else {
+                                app->edit_track_field = TRACK_FIELD_TITLE;
+                                app->edit_char_selection = 0;
+                            }
+                            app->edit_char_pos = 0;
+                        } else {
+                            // Not at start - delete character/digit
+                            if(app->edit_track_field == TRACK_FIELD_DURATION) {
+                                // Delete last digit
+                                int32_t current_seconds = 0;
+                                if(strlen(track->duration) > 0) {
+                                    current_seconds = atoi(track->duration);
+                                }
+                                current_seconds = current_seconds / 10;
+                                if(current_seconds > 0) {
+                                    snprintf(track->duration, sizeof(track->duration), "%ld", (long)current_seconds);
+                                } else {
+                                    track->duration[0] = '\0';
+                                }
+                                app->dirty = true;
+                            } else {
+                                // Delete character in title
+                                int32_t len = strlen(field);
+                                if(app->edit_char_pos <= len && app->edit_char_pos > 0) {
+                                    for(int32_t i = app->edit_char_pos - 1; i < len; i++) {
+                                        field[i] = field[i + 1];
+                                    }
+                                    app->edit_char_pos--;
+                                }
+                                app->dirty = true;
+                            }
+                        }
+                    }
+                }
             } else {
                 // Track list navigation
                 if(input_event->key == InputKeyUp) {
@@ -1497,14 +1961,43 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                         }
                     }
                 } else if(input_event->key == InputKeyBack) {
-                    // Return to Add/Edit view - ensure safe transition
-                    if(app->current_slot_index >= 0 && app->current_slot_index < app->total_slots) {
-                        app->current_view = VIEW_ADD_EDIT_CD;
-                        app->edit_field = FIELD_TRACKS;  // Stay on tracks field
-                    } else {
-                        // Invalid slot, go to slot list instead
+                    if(is_long_press) {
+                        // Long press BACK - exit to slot list
                         app->current_view = VIEW_SLOT_LIST;
+                    } else {
+                        // Short press BACK - return to Add/Edit view
+                        if(app->current_slot_index >= 0 && app->current_slot_index < app->total_slots) {
+                            app->current_view = VIEW_ADD_EDIT_CD;
+                            app->edit_field = FIELD_TRACKS;  // Stay on tracks field
+                        } else {
+                            // Invalid slot, go to slot list instead
+                            app->current_view = VIEW_SLOT_LIST;
+                        }
                     }
+                }
+            }
+            break;
+        }
+        
+        case VIEW_SETTINGS: {
+            if(input_event->key == InputKeyBack) {
+                if(is_long_press) {
+                    app->running = false;
+                    return;
+                } else {
+                    flipchanger_show_main_menu(app);
+                }
+            }
+            break;
+        }
+        
+        case VIEW_STATISTICS: {
+            if(input_event->key == InputKeyBack) {
+                if(is_long_press) {
+                    app->running = false;
+                    return;
+                } else {
+                    flipchanger_show_main_menu(app);
                 }
             }
             break;
@@ -1607,4 +2100,44 @@ int32_t flipchanger_main(void* p) {
     free(app);
     
     return 0;
+}
+
+// Draw Settings view (stub)
+void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app) {
+    UNUSED(app);
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontPrimary);
+    
+    // Title
+    canvas_draw_str(canvas, 30, 10, "Settings");
+    
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str(canvas, 5, 30, "Coming Soon");
+    canvas_draw_str(canvas, 5, 40, "Settings menu");
+    canvas_draw_str(canvas, 5, 50, "will be here");
+    
+    // Footer - two lines with abbreviations
+    canvas_set_font(canvas, FontKeyboard);
+    canvas_draw_str(canvas, 5, 57, "B:Return");
+    canvas_draw_str(canvas, 5, 63, "LB:Exit");
+}
+
+// Draw Statistics view (stub)
+void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app) {
+    UNUSED(app);
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontPrimary);
+    
+    // Title
+    canvas_draw_str(canvas, 20, 10, "Statistics");
+    
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str(canvas, 5, 30, "Coming Soon");
+    canvas_draw_str(canvas, 5, 40, "Statistics view");
+    canvas_draw_str(canvas, 5, 50, "will be here");
+    
+    // Footer - two lines with abbreviations
+    canvas_set_font(canvas, FontKeyboard);
+    canvas_draw_str(canvas, 5, 57, "B:Return");
+    canvas_draw_str(canvas, 5, 63, "LB:Exit");
 }

@@ -80,8 +80,12 @@ typedef struct {
         VIEW_SLOT_DETAILS,
         VIEW_ADD_EDIT_CD,
         VIEW_TRACK_MANAGEMENT,
+        VIEW_SETTINGS,
+        VIEW_STATISTICS,
         VIEW_CONFIRM_DELETE,
     } current_view;
+    
+    int32_t details_scroll_offset;  // Scroll offset for slot details view
     
     int32_t selected_index;      // Selected item in list
     int32_t scroll_offset;        // Scroll position in lists
@@ -101,6 +105,7 @@ typedef struct {
     } edit_field;                 // Current field being edited
     int32_t edit_char_pos;        // Character position in current field
     int32_t edit_char_selection;  // Selected character (for character picker)
+    int32_t edit_field_scroll;    // Scroll offset for long field text display
     
     // Track Management State
     int32_t edit_selected_track;  // Selected track index for editing
@@ -108,6 +113,7 @@ typedef struct {
     enum {
         TRACK_FIELD_TITLE,
         TRACK_FIELD_DURATION,
+        TRACK_FIELD_COUNT
     } edit_track_field;            // Which track field is being edited
     
 } FlipChangerApp;

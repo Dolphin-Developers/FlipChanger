@@ -18,18 +18,27 @@ The main FlipChanger application for Flipper Zero - tracks CD metadata for CD ch
 - **Data Persistence**: All changes saved to SD card ✅ WORKING
 - **Device Testing**: ✅ App successfully deployed and running on Flipper Zero
 
+### ✅ Recent Improvements (v1.0.1)
+
+- **Track Editing**: ✅ Complete - Title and duration editing with character input
+- **Field Display**: ✅ Scrolling implemented for long text fields
+- **Scrollable Menus**: ✅ Slot details view shows 3 items at a time
+- **Settings/Statistics**: ✅ Menu stubs added (functionality coming soon)
+- **Footer Improvements**: ✅ Two-line footers with abbreviations (U/D, L/R, K, B, LB)
+- **Year Field**: ✅ Numbers only input with proper navigation
+- **Long Press BACK**: ✅ Exit functionality throughout app
+
 ### 🚧 In Progress / Needs Polish
 
-- **Track Editing**: Track title/duration editing (structure exists, needs character input)
-- **Field Display**: Truncation/scrolling for long text (>15 chars)
-- **Pop-out Views**: Full-screen field editing for better UX
-- **Field Navigation**: Improved navigation between fields
+- **Settings Menu**: Stub complete, needs full functionality
+- **Statistics View**: Stub complete, needs calculation logic
+- **Pop-out Views**: Full-screen field editing (future enhancement)
 
 ### 📋 Planned Features
 
+- **Settings Menu**: Implement slot count configuration and settings persistence
+- **Statistics View**: Implement collection statistics calculations and display
 - **Enhanced Fields**: Add "Disc Number", split Artist into "Track Artist" and "Album Artist"
-- **Statistics**: Collection statistics (total CDs, by artist, etc.)
-- **Settings**: Configure number of slots, etc.
 - **IR Integration**: Control CD changer via infrared
 
 ## Building the App
@@ -64,7 +73,7 @@ The app is compiled into a `.fap` file:
 **Important**: This app uses SD card-based storage to support up to 200 slots:
 - **Cache Size**: Only 10 slots kept in RAM at a time
 - **Total Support**: Up to 200 slots (stored on SD card)
-- **Stack Size**: 2048 bytes (optimized)
+- **Stack Size**: 3072 bytes (optimized)
 - **Memory Usage**: ~8.5KB in RAM (vs ~170KB if all slots in memory)
 
 This allows the app to run on Flipper Zero's limited RAM (~64KB total) while supporting large CD collections.
