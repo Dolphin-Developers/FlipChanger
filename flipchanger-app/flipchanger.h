@@ -92,6 +92,10 @@ typedef struct {
     bool running;
     bool dirty;                   // Data has been modified, needs save
     
+    // Settings state
+    bool editing_slot_count;      // True if editing slot count in settings
+    int32_t edit_slot_count_pos;  // Cursor position for slot count editing
+    
     // Add/Edit Input State
     enum {
         FIELD_ARTIST,

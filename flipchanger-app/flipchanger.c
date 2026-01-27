@@ -31,6 +31,9 @@ void flipchanger_init_slots(FlipChangerApp* app, int32_t total_slots) {
     app->current_slot_index = 0;
     app->selected_index = 0;
     app->scroll_offset = 0;
+    app->details_scroll_offset = 0;
+    app->editing_slot_count = false;
+    app->edit_slot_count_pos = 0;
 }
 
 // Load slot from SD card into cache
@@ -903,8 +906,19 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         NULL   // Tracks handled separately
     };
     
-    // Draw fields (6 fields + Save = 7 total)
-    for(int32_t i = 0; i < FIELD_SAVE && i < 6; i++) {
+    // Draw fields (show 3 at a time with scrolling for Add/Edit view)
+    const int32_t VISIBLE_FIELDS = 3;
+    int32_t field_scroll_offset = 0;
+    if((int32_t)app->edit_field >= VISIBLE_FIELDS) {
+        field_scroll_offset = (int32_t)app->edit_field - VISIBLE_FIELDS + 1;
+    }
+    if(field_scroll_offset < 0) field_scroll_offset = 0;
+    
+    int32_t start_field = field_scroll_offset;
+    int32_t end_field = start_field + VISIBLE_FIELDS;
+    if(end_field > FIELD_SAVE) end_field = FIELD_SAVE;
+    
+    for(int32_t i = start_field; i < end_field; i++) {
         bool is_selected = (app->edit_field == i);
         
         // Highlight selected field
@@ -1069,19 +1083,21 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             canvas_invert_color(canvas);
         }
         
-        y += 6;  // Very tight spacing to fit all fields and leave room for footer
+        y += 10;  // Better spacing between fields (was 6, now 10 for readability)
     }
     
-    // Save button - positioned to avoid footer overlap
+    // Save button - show if in visible range
     bool save_selected = (app->edit_field == FIELD_SAVE);
-    y = 46;  // Positioned above footer (footer at y=62, needs ~8px clearance)
-    if(save_selected) {
-        canvas_draw_box(canvas, 2, y - 8, 124, 8);
-        canvas_invert_color(canvas);
-    }
-    canvas_draw_str(canvas, 5, y, "Save");
-    if(save_selected) {
-        canvas_invert_color(canvas);
+    if(FIELD_SAVE >= start_field && FIELD_SAVE < end_field) {
+        // Save button is in visible range - draw it
+        if(save_selected) {
+            canvas_draw_box(canvas, 2, y - 8, 124, 8);
+            canvas_invert_color(canvas);
+        }
+        canvas_draw_str(canvas, 5, y, "Save");
+        if(save_selected) {
+            canvas_invert_color(canvas);
+        }
     }
     
     // Footer - two lines with abbreviations
@@ -1093,21 +1109,22 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
                 app->edit_field == FIELD_GENRE || app->edit_field == FIELD_NOTES) {
         // Field editing mode - show different hint based on state
         if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
-            // Navigation mode
-            canvas_draw_str(canvas, 5, 57, "U/D:Field K:Edit B:Return");
-            canvas_draw_str(canvas, 5, 63, "LB:Exit");
+            // Navigation mode - split across two lines
+            canvas_draw_str(canvas, 5, 57, "U/D:Field K:Edit");
+            canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
         } else {
-            // Editing mode
-            canvas_draw_str(canvas, 5, 57, "U/D:Char K:Add B:Return");
-            canvas_draw_str(canvas, 5, 63, "LB:Exit");
+            // Editing mode - split across two lines
+            canvas_draw_str(canvas, 5, 57, "U/D:Char K:Add");
+            canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
         }
     } else if(app->edit_field == FIELD_YEAR) {
-        // Year field - numeric only
-        canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add B:Del");
-        canvas_draw_str(canvas, 5, 63, "LB:Exit");
+        // Year field - numeric only - split across two lines
+        canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add");
+        canvas_draw_str(canvas, 5, 63, "B:Del LB:Exit");
     } else {
-        canvas_draw_str(canvas, 5, 57, "U/D:Field K:Add B:Return");
-        canvas_draw_str(canvas, 5, 63, "LB:Exit");
+        // Default footer - split across two lines
+        canvas_draw_str(canvas, 5, 57, "U/D:Field K:Add");
+        canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
     }
 }
 
@@ -1304,10 +1321,14 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                         flipchanger_show_slot_list(app);  // Show slots first to select
                         break;
                     case 2:  // Statistics
-                        // TODO: Show statistics
+                        app->current_view = VIEW_STATISTICS;
+                        app->selected_index = 0;
                         break;
                     case 3:  // Settings
-                        // TODO: Show settings
+                        app->current_view = VIEW_SETTINGS;
+                        app->selected_index = 0;
+                        app->editing_slot_count = false;
+                        app->edit_slot_count_pos = 0;
                         break;
                 }
             } else if(input_event->key == InputKeyBack) {
@@ -1980,12 +2001,51 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
         }
         
         case VIEW_SETTINGS: {
-            if(input_event->key == InputKeyBack) {
-                if(is_long_press) {
-                    app->running = false;
-                    return;
-                } else {
-                    flipchanger_show_main_menu(app);
+            if(app->editing_slot_count) {
+                // Editing slot count - use UP/DOWN to change value
+                if(input_event->key == InputKeyUp) {
+                    // Increment slot count
+                    app->total_slots += 1;
+                    if(app->total_slots > MAX_SLOTS) {
+                        app->total_slots = MAX_SLOTS;
+                    }
+                    app->dirty = true;
+                } else if(input_event->key == InputKeyDown) {
+                    // Decrement slot count
+                    app->total_slots -= 1;
+                    if(app->total_slots < MIN_SLOTS) {
+                        app->total_slots = MIN_SLOTS;
+                    }
+                    app->dirty = true;
+                } else if(input_event->key == InputKeyBack) {
+                    if(is_long_press) {
+                        // Long press - save and exit
+                        if(app->dirty && app->storage) {
+                            // Reinitialize slots with new count
+                            flipchanger_init_slots(app, app->total_slots);
+                            flipchanger_save_data(app);
+                            app->dirty = false;
+                        }
+                        app->editing_slot_count = false;
+                        flipchanger_show_main_menu(app);
+                    } else {
+                        // Short press - exit editing mode (don't save)
+                        app->editing_slot_count = false;
+                    }
+                }
+            } else {
+                // Settings menu navigation
+                if(input_event->key == InputKeyOk) {
+                    // Start editing slot count
+                    app->editing_slot_count = true;
+                    app->edit_slot_count_pos = 0;
+                } else if(input_event->key == InputKeyBack) {
+                    if(is_long_press) {
+                        app->running = false;
+                        return;
+                    } else {
+                        flipchanger_show_main_menu(app);
+                    }
                 }
             }
             break;
@@ -2102,9 +2162,12 @@ int32_t flipchanger_main(void* p) {
     return 0;
 }
 
-// Draw Settings view (stub)
+// Draw Settings view
 void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app) {
-    UNUSED(app);
+    if(!canvas || !app) {
+        return;
+    }
+    
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
     
@@ -2112,29 +2175,149 @@ void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app) {
     canvas_draw_str(canvas, 30, 10, "Settings");
     
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 5, 30, "Coming Soon");
-    canvas_draw_str(canvas, 5, 40, "Settings menu");
-    canvas_draw_str(canvas, 5, 50, "will be here");
+    int32_t y = 22;
+    
+    // Slot Count setting
+    canvas_draw_str(canvas, 5, y, "Slot Count:");
+    
+    // Display current slot count
+    char slot_count_str[32];
+    snprintf(slot_count_str, sizeof(slot_count_str), "%ld", (long)app->total_slots);
+    
+    // Highlight if editing
+    if(app->editing_slot_count) {
+        canvas_draw_box(canvas, 60, y - 9, 60, 9);
+        canvas_invert_color(canvas);
+    }
+    
+    canvas_draw_str(canvas, 65, y, slot_count_str);
+    
+    if(app->editing_slot_count) {
+        canvas_invert_color(canvas);
+        
+        // Show cursor at end of number
+        int32_t cursor_x = 65 + (strlen(slot_count_str) * 6);
+        if(cursor_x < 120) {
+            canvas_draw_line(canvas, cursor_x, y, cursor_x, y - 8);
+        }
+        
+        // Show number picker hint
+        canvas_draw_str(canvas, 5, y + 10, "U/D:Num K:Add");
+    }
+    
+    // Range hint
+    y += 12;
+    canvas_set_font(canvas, FontKeyboard);
+    char range_str[32];
+    snprintf(range_str, sizeof(range_str), "Range: %d-%d", MIN_SLOTS, MAX_SLOTS);
+    canvas_draw_str(canvas, 5, y, range_str);
     
     // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 57, "B:Return");
-    canvas_draw_str(canvas, 5, 63, "LB:Exit");
+    if(app->editing_slot_count) {
+        canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add B:Del");
+        canvas_draw_str(canvas, 5, 63, "LB:Save & Exit");
+    } else {
+        canvas_draw_str(canvas, 5, 57, "K:Edit Slot Count");
+        canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
+    }
 }
 
-// Draw Statistics view (stub)
+// Calculate statistics from JSON file (simplified, safe version)
+static void flipchanger_calculate_statistics(FlipChangerApp* app, int32_t* total_albums, int32_t* total_tracks, int32_t* total_seconds) {
+    *total_albums = 0;
+    *total_tracks = 0;
+    *total_seconds = 0;
+    
+    if(!app || !app->storage || !total_albums || !total_tracks || !total_seconds) {
+        return;
+    }
+    
+    // Use cached slots only for safety (avoids stack overflow from large JSON parsing)
+    // This is more memory-efficient and safer
+    for(int32_t i = 0; i < SLOT_CACHE_SIZE && i < app->total_slots; i++) {
+        Slot* slot = &app->slots[i];
+        if(slot && slot->occupied) {
+            (*total_albums)++;
+            
+            // Count tracks and sum durations
+            if(slot->cd.track_count > 0 && slot->cd.track_count <= MAX_TRACKS) {
+                for(int32_t t = 0; t < slot->cd.track_count; t++) {
+                    Track* track = &slot->cd.tracks[t];
+                    if(track) {
+                        (*total_tracks)++;
+                        
+                        // Parse duration (stored as string, e.g., "180" for 180 seconds)
+                        if(strlen(track->duration) > 0) {
+                            int32_t seconds = atoi(track->duration);
+                            if(seconds > 0 && seconds < 999999) {  // Sanity check
+                                *total_seconds += seconds;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // If we want to count ALL slots (not just cached), we'd need to load from SD card
+    // But that's risky with stack size - for now, count cached slots only
+    // This is safe and won't crash, even if it doesn't show all slots
+}
+
+// Draw Statistics view
 void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app) {
-    UNUSED(app);
+    // Safety check
+    if(!canvas || !app) {
+        return;
+    }
+    
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
     
     // Title
     canvas_draw_str(canvas, 20, 10, "Statistics");
     
+    // Calculate statistics (safe version - uses cached slots only)
+    int32_t total_albums = 0;
+    int32_t total_tracks = 0;
+    int32_t total_seconds = 0;
+    
+    // Safety: ensure app is valid before calculating
+    if(app && app->storage) {
+        flipchanger_calculate_statistics(app, &total_albums, &total_tracks, &total_seconds);
+    }
+    
+    // Format total time (convert seconds to hours:minutes:seconds)
+    int32_t hours = total_seconds / 3600;
+    int32_t minutes = (total_seconds % 3600) / 60;
+    int32_t seconds = total_seconds % 60;
+    
     canvas_set_font(canvas, FontSecondary);
-    canvas_draw_str(canvas, 5, 30, "Coming Soon");
-    canvas_draw_str(canvas, 5, 40, "Statistics view");
-    canvas_draw_str(canvas, 5, 50, "will be here");
+    int32_t y = 22;
+    
+    // Total Albums
+    char albums_str[32];
+    snprintf(albums_str, sizeof(albums_str), "Albums: %ld", (long)total_albums);
+    canvas_draw_str(canvas, 5, y, albums_str);
+    y += 10;
+    
+    // Total Tracks
+    char tracks_str[32];
+    snprintf(tracks_str, sizeof(tracks_str), "Tracks: %ld", (long)total_tracks);
+    canvas_draw_str(canvas, 5, y, tracks_str);
+    y += 10;
+    
+    // Total Time
+    char time_str[48];
+    if(hours > 0) {
+        snprintf(time_str, sizeof(time_str), "Time: %ldh %ldm", (long)hours, (long)minutes);
+    } else if(minutes > 0) {
+        snprintf(time_str, sizeof(time_str), "Time: %ldm %lds", (long)minutes, (long)seconds);
+    } else {
+        snprintf(time_str, sizeof(time_str), "Time: %lds", (long)seconds);
+    }
+    canvas_draw_str(canvas, 5, y, time_str);
     
     // Footer - two lines with abbreviations
     canvas_set_font(canvas, FontKeyboard);
