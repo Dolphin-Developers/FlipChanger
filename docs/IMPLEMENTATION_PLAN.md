@@ -113,6 +113,29 @@
 
 ---
 
+### 6. Multi-Changer & Splash Screen (NEXT – Design Complete)
+**Why Now**: Critical roadmap jump-in before further feature work; users may have multiple CD changers
+**Dependencies**: Storage (#1), Settings (#4) – slot count moves into Changer model
+**Effort**: High
+
+**Tasks**:
+- [ ] Changer registry: `flipchanger_changers.json` (list + last_used_id)
+- [ ] Per-Changer slots: `flipchanger_<id>.json` per Changer
+- [ ] Migration: one-time from `flipchanger_data.json` to Changer model
+- [ ] Changer list view: select Changer; header shows Changer name
+- [ ] Changer admin: Add, Edit, Delete Changer
+- [ ] Persist last-used Changer on exit; load on startup
+- [ ] First-run wizard when no Changers exist
+- [ ] Splash screen on launch (brief FlipChanger logo)
+
+**Files to Modify**:
+- `flipchanger.h` – Changer struct, registry, views
+- `flipchanger.c` – Changer load/save, UI, migration
+
+**Design**: See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md)
+
+---
+
 ## Implementation Approach
 
 ### JSON Storage Strategy
@@ -239,13 +262,12 @@
 
 ## Next Steps
 
-1. ✅ **Documentation Updated** - All docs reflect current progress
-2. **Implement JSON Storage** - Foundation for everything
-3. **Test Storage** - Verify save/load works
-4. **Implement Add/Edit** - Core user feature
-5. **Test Complete Workflow** - End-to-end testing
-6. **Polish & Deploy** - Final touches
+1. ✅ **JSON Storage** – Complete
+2. ✅ **Add/Edit, Track Management, Settings, Statistics** – Complete
+3. **Implement Multi-Changer & Splash** – See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md)
+4. **Test Changer migration** – Verify existing data migrates correctly
+5. **Polish & Deploy** – Final touches
 
 ---
 
-**Current Status**: Ready to implement JSON storage system!
+**Current Status**: Multi-Changer design complete; ready for implementation.

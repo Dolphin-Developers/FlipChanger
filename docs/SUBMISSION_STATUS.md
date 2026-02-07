@@ -1,7 +1,7 @@
 # FlipChanger - App Store Submission Status
 
-**Last Updated**: January 24, 2025  
-**Overall Readiness**: ~75% (Core complete, needs polish)  
+**Last Updated**: February 7, 2025  
+**Overall Readiness**: ~85% (Core complete, icon done, needs version/author)  
 **Repository**: https://github.com/Dolphin-Developers/FlipChanger
 
 ---
@@ -24,10 +24,7 @@
 
 ## Critical Blockers (Must Fix)
 
-1. ❌ **App Icon**: No icon file exists
-   - **Priority**: CRITICAL
-   - **Action**: Create 64x64 icon (or check exact size requirements)
-   - **Estimated Time**: 1-2 hours
+1. ✅ **App Icon**: Done (10×10 PNG in `flipchanger-app/images/flipchanger.png`, `fap_icon` in manifest)
 
 2. ⚠️ **Manifest Version**: Version field missing
    - **Priority**: HIGH
@@ -59,7 +56,7 @@
 
 ### 🚧 Needs Improvement
 
-- [ ] App icon (missing)
+- [x] App icon ✅ (10×10 PNG)
 - [ ] Version in manifest (missing)
 - [ ] Author in manifest (missing)
 - [ ] Code comments (sparse)
@@ -90,21 +87,21 @@ App(
     requires=["gui", "storage"],      # ✅ Correct
     stack_size=3072,                  # ✅ Optimized
     cdefines=["APP_FLIPCHANGER"],     # ✅ Good
+    fap_icon="images/flipchanger.png",  # ✅ 10×10 PNG
     # Missing:
-    # version="1.0.0",               # ❌ Need to add
+    # version="1.0.3",               # ❌ Need to add
     # author="Your Name",            # ❌ Need to add
-    # fap_icon_assets="icon",        # ❌ Need icon file
 )
 ```
 
-**Action**: Add version, author, and icon support
+**Action**: Add version and author to manifest
 
 ---
 
 ## Next Steps
 
 ### Immediate (This Week)
-1. Create app icon (64x64 PNG)
+1. ~~Create app icon~~ ✅ Done
 2. Add version/author to manifest
 3. Test icon displays correctly
 
@@ -143,6 +140,6 @@ App(
 
 - App is stable and functional
 - All core features working
-- Main blocker is icon creation
+- Icon complete; version/author still needed
 - Submission process appears straightforward (PR-based)
 - Code quality is good, just needs documentation polish

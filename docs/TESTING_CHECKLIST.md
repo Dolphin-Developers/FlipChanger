@@ -1,8 +1,16 @@
 # FlipChanger Testing Checklist
 
-**Date**: January 24, 2025  
-**Version**: v1.0.1 (with Settings & Statistics)  
+**Date**: February 7, 2025  
+**Version**: v1.0.3 (full-screen layout, wrap-around scroll fix)  
 **Tester**: _______________
+
+---
+
+## v1.0.3 Changes (Feb 2025)
+- **Full-screen layout** – 5 slots, 4 fields (slot details/add-edit), 5 tracks visible
+- **Wrap-around scroll fix** – Screen scrolls to show selection when wrapping Up/Down at list ends
+- **Help menu** – Instructions in Help (Main menu or R key)
+- **Long press Up/Down** – Skip by 10 slots
 
 ---
 
@@ -23,9 +31,9 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 ### 1.1 App Launch
 - [ ] App launches without crash
 - [ ] Main menu appears correctly
-- [ ] All 4 menu items visible (View Slots, Add CD, Statistics, Settings)
-- [ ] Footer text visible and readable (not cut off)
-- [ ] No UI overlap issues
+- [ ] All 5 menu items visible (View Slots, Add CD, Statistics, Settings, Help)
+- [ ] No UI overlap (footers removed; use Help for instructions)
+- [ ] No overlap between menu items
 
 **Notes**: _________________________________________________
 
@@ -44,12 +52,14 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 ### 2.1 Slot List Display
 - [ ] Slot list view appears
-- [ ] Shows correct number of slots (default 20 or configured amount)
+- [ ] Shows correct number of slots (default or configured)
 - [ ] Empty slots show "Empty" status
 - [ ] Occupied slots show album name
-- [ ] Footer text visible and readable
-- [ ] No UI overlap (footer doesn't cover menu items)
-- [ ] Shows 4 items at a time (scrollable)
+- [ ] No UI overlap (press R for Help)
+- [ ] Shows 5 items at a time (scrollable)
+- [ ] Wrap-around: Down at last slot → first; Up at first → last
+- [ ] Screen scrolls when wrapping so selection stays visible
+- [ ] Long press Up/Down skips by 10 slots
 
 **Notes**: _________________________________________________
 
@@ -68,16 +78,16 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 ### 3.1 Empty Slot Display
 - [ ] Empty slot shows "[Empty Slot]" message
-- [ ] Footer shows "OK:Add CD BACK:Return"
 - [ ] OK button opens Add/Edit view
 - [ ] BACK button returns to slot list
+- [ ] R opens Help
 
 **Notes**: _________________________________________________
 
 ### 3.2 Occupied Slot Display
 - [ ] Shows slot number in header
 - [ ] Shows all fields: Artist, Album, Year, Genre, Tracks
-- [ ] Fields are scrollable (shows 3 at a time)
+- [ ] Fields are scrollable (shows 4 at a time)
 - [ ] UP/DOWN scrolls through fields
 - [ ] Footer shows "U/D:Scroll K:Edit B:Return"
 - [ ] OK button opens Add/Edit view
@@ -93,7 +103,7 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 ### 4.1 View Display
 - [ ] Shows slot number in header
 - [ ] Shows all fields: Artist, Album, Year, Genre, Notes, Tracks, Save
-- [ ] Shows 3 fields at a time (scrollable)
+- [ ] Shows 4 fields at a time (scrollable)
 - [ ] Selected field is highlighted
 - [ ] Footer text visible and readable (two lines)
 - [ ] Footer doesn't overlap menu items
@@ -304,17 +314,18 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 ## 9. UI/UX Issues
 
-### 9.1 Footer Text
-- [ ] All footers use two lines
-- [ ] Footer text doesn't run off screen
-- [ ] Abbreviations are clear (U/D, L/R, K, B, LB)
-- [ ] Footer doesn't overlap menu items
+### 9.1 Help & Instructions
+- [ ] Help accessible from Main menu (5th option)
+- [ ] R key opens Help in Slot list, Slot details, Settings, Statistics
+- [ ] Help shows key bindings (U/D, K, B, LB, R, LPU/LPD)
+- [ ] B or K closes Help and returns to previous view
+- [ ] No footer overlap (footers removed)
 
 **Notes**: _________________________________________________
 
 ### 9.2 Menu Scrolling
 - [ ] Slot details shows 3 items at a time
-- [ ] Add/Edit shows 3 fields at a time
+- [ ] Add/Edit shows 4 fields at a time
 - [ ] Scrolling works smoothly
 - [ ] Selected item always visible
 

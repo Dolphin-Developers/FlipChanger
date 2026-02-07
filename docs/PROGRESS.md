@@ -2,7 +2,7 @@
 
 This document tracks the development progress of the FlipChanger project.
 
-**Last Updated**: January 24, 2025
+**Last Updated**: February 7, 2025
 
 ---
 
@@ -37,7 +37,7 @@ This document tracks the development progress of the FlipChanger project.
 - [x] Project structure and build configuration
 
 ### ✅ Phase 4: Basic UI and Navigation (Complete)
-- [x] Main menu with 4 options
+- [x] Main menu with 5 options (including Help)
 - [x] Slot browser (supports 1-200 slots)
 - [x] Slot details view
 - [x] Full navigation system (UP/DOWN/OK/BACK)
@@ -102,14 +102,40 @@ This document tracks the development progress of the FlipChanger project.
 - [x] Proper field navigation and cursor management
 
 ### ✅ Phase 11: UI/UX Improvements (Complete)
-- [x] Scrollable slot details view (shows 3 items at a time)
+- [x] Scrollable slot details view (shows 4 items at a time)
 - [x] Settings menu stub (VIEW_SETTINGS added)
 - [x] Statistics menu stub (VIEW_STATISTICS added)
-- [x] Footer text fixed (two lines with abbreviations)
 - [x] Year field fixed (numbers only, proper navigation)
 - [x] Long press BACK support throughout app
 - [x] Improved field navigation in Add/Edit view
-- [x] Better footer instructions (U/D, L/R, K, B, LB abbreviations)
+
+### ✅ Phase 11.5: v1.0.2 Testing Fixes (Jan 2025)
+- [x] **Help menu** – Footers removed; instructions in Help (Main menu + R key in Slot list, Details, Settings, Statistics)
+- [x] **Slot list wrap-around** – Down at last slot → first; Up at first slot → last
+- [x] **Long press Up/Down** – Skip by 10 slots for faster navigation
+- [x] **Save fix** – Track title/duration now parsed and persisted on load (was saving blanks)
+- [x] **Custom app icon** – User-created 10x10 PNG icon integrated
+
+### ✅ Phase 11.6: Full-Screen Layout & Scroll Fix (Feb 2025)
+- [x] **Full-screen menus** – Footers removed; recaptured screen space for content
+- [x] **Slot list** – 5 slots visible (was 4); compact headers
+- [x] **Slot details** – 4 fields visible (was 3)
+- [x] **Add/Edit** – 4 fields visible (was 3)
+- [x] **Track management** – 5 tracks visible (4 when editing)
+- [x] **Wrap-around scroll** – Screen scrolls to show selection when wrapping (Up at slot 1→100, Down at 100→1)
+- [x] **Long-press Up/Down** – Skip by 10 slots (verified working with wrap-around)
+
+### 📋 Phase 11.7: Multi-Changer & Splash Screen (NEXT – Design Complete)
+- [ ] **Multi-Changer support** – Changers: Name, Location, Total Slots; each has own slots DB
+- [ ] **Changer registry** – `flipchanger_changers.json`; per-Changer `flipchanger_<id>.json`
+- [ ] **Changer select** – Top-level Changer list; header shows Changer name instead of "FlipChanger"
+- [ ] **Changer admin** – Add, Edit, Delete Changer; block delete if last
+- [ ] **Persistence** – Save/load `last_used_id` on exit/start
+- [ ] **Migration** – One-time from single `flipchanger_data.json` to Changer model
+- [ ] **Splash screen** – Brief FlipChanger logo on launch
+- [ ] **First-run wizard** – Create first Changer when none exist
+
+See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for full architecture.
 
 ---
 
@@ -135,20 +161,20 @@ This document tracks the development progress of the FlipChanger project.
 - [ ] Split Artist into "Track Artist" and "Album Artist"
 - [ ] Improved metadata structure for compilations/DJ sets
 
-### 📋 Phase 13: Settings Menu (Stub Complete)
-- [x] Settings menu view (stub implemented)
-- [ ] Slot count configuration (3-200) - needs implementation
-- [ ] Save settings to JSON - needs implementation
-- [ ] Load settings on startup - needs implementation
-- [ ] Settings menu functionality (currently shows "Coming Soon")
+### 📋 Phase 13: Settings Menu (Partial)
+- [x] Settings menu view
+- [x] Slot count configuration (3-200)
+- [x] Save/load settings to JSON
+- [ ] Load settings on startup (uses saved file)
+- [x] Slot count editing with OK to edit
 
-### 📋 Phase 14: Statistics View (Stub Complete)
-- [x] Statistics view (stub implemented)
-- [ ] Total CDs count - needs implementation
-- [ ] CDs by artist (count) - needs implementation
-- [ ] CDs by genre (count) - needs implementation
-- [ ] Empty slots count - needs implementation
-- [ ] Collection size percentage - needs implementation
+### 📋 Phase 14: Statistics View (Partial)
+- [x] Statistics view
+- [x] Total albums count (from cached slots)
+- [x] Total tracks count
+- [x] Total play time (hours:minutes:seconds)
+- [ ] CDs by artist/genre breakdown (future)
+- [ ] Empty slots count (future)
 
 ### 📋 Phase 15: IR Integration (Future)
 - [ ] Research IR database API
@@ -189,11 +215,11 @@ This document tracks the development progress of the FlipChanger project.
 - **Deployment**: Via USB (57-115 KB/s transfer rate)
 
 ### Code Quality
-- **Lines of Code**: ~2100+ (main application)
+- **Lines of Code**: ~2300+ (main application)
 - **Compilation**: ✅ No warnings/errors
 - **Memory Safety**: ✅ Comprehensive bounds checking and validation
 - **Error Handling**: Robust (extensive safety checks added)
-- **UI/UX**: ✅ Improved with scrollable menus, better footers, long press support
+- **UI/UX**: ✅ Full-screen layout, Help menu, wrap-around scroll, long press support
 
 ### Stability Improvements
 - **Crash Fixes**: Multiple critical crashes resolved
@@ -220,8 +246,8 @@ This document tracks the development progress of the FlipChanger project.
 
 ## Known Issues / TODO
 
-1. **Settings Menu**: Stub implemented, needs full functionality (slot count configuration)
-2. **Statistics View**: Stub implemented, needs calculation and display logic
+1. **Settings Menu**: Slot count config working; load on startup uses saved file
+2. **Statistics View**: Albums/tracks/time from cached slots; artist/genre breakdown future
 3. **Pop-out Views**: Could add full-screen field editing views for better usability (future enhancement)
 4. **Additional Fields**: Need to add "Disc Number" and split Artist fields
 5. **Track Management**: Button actions (LEFT/RIGHT for add/delete) could be clearer
@@ -231,12 +257,12 @@ This document tracks the development progress of the FlipChanger project.
 ## Next Steps (Priority Order)
 
 1. **Test Current Build** (Immediate)
-   - Verify all recent UI/UX improvements
-   - Test scrollable slot details
-   - Test Settings/Statistics stubs
-   - Test footer abbreviations
+   - Verify all recent UI/UX improvements (v1.0.3)
+   - Test full-screen layout (5 slots, 4 fields, 5 tracks)
+   - Test Help menu and wrap-around scroll
+   - Test Settings/Statistics
    - Test Year field numeric input
-   - Test long press BACK functionality
+   - Test long press BACK and long press Up/Down skip by 10
 
 2. **Implement Settings Menu** (High Priority)
    - Slot count configuration (3-200)
@@ -256,7 +282,7 @@ This document tracks the development progress of the FlipChanger project.
    - Comprehensive testing
    - User documentation
    - Code comments
-   - App icon creation
+   - App icon: ✅ Done
 
 ---
 

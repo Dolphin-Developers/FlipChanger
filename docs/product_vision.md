@@ -42,6 +42,8 @@ Enable Flipper Zero users to manage and track their physical CD collection when 
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
+| **Multi-Changer Support** | Multiple Changers (Name, Location, Slots); select at top menu; persist last-used; per-Changer data. See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) | High |
+| **Splash Screen** | Brief FlipChanger logo on app launch | Medium |
 | **IR Remote Integration** | Utilize Flipper Zero's infrared capabilities to control CD changer (play, pause, eject, select slot) using existing IR database | Medium |
 | **Import/Export** | Import metadata from JSON/CSV files (via SD card or Flipper Lab), export for backup | Medium |
 | **Search Function** | Search CDs by artist, album, or track name across all slots | Low |
@@ -56,9 +58,10 @@ Enable Flipper Zero users to manage and track their physical CD collection when 
 ### Storage Architecture
 - **Data Format**: JSON files stored on SD card or internal storage
 - **Storage Location**: App-specific data folder (compliant with Flipper Zero app guidelines)
-- **File Structure**: 
-  - `flipchanger_data.json` - Main database file
-  - Backup files for data recovery
+- **File Structure** (current → planned):
+  - `flipchanger_data.json` - Current single-changer database (legacy)
+  - **Planned**: `flipchanger_changers.json` - Changer registry + last_used_id
+  - **Planned**: `flipchanger_<id>.json` - Per-Changer slots database
 
 ### User Interface Constraints
 - **Display**: 128x64 pixel monochrome LCD
@@ -219,7 +222,7 @@ Enable Flipper Zero users to manage and track their physical CD collection when 
 ## 12. Future Vision
 
 Beyond v1.0, FlipChanger could evolve into:
-- Support for multiple changer profiles
+- **Multi-Changer support** (Next phase): Multiple Changers (Name, Location, Slots); select at top menu; persist last-used; per-Changer slots database. See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md).
 - Barcode/QR code scanning for CD lookup
 - Integration with music databases (Discogs, MusicBrainz)
 - Companion mobile/web app for easier data entry

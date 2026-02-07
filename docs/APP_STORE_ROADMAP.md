@@ -1,6 +1,6 @@
 # FlipChanger - Flipper App Store Submission Roadmap
 
-**Last Updated**: January 24, 2025  
+**Last Updated**: February 7, 2025  
 **Status**: In Progress - Preparing for Submission
 
 ---
@@ -48,7 +48,7 @@ This document tracks our progress toward submission to the official Flipper Zero
 - [ ] **Edge Cases**: 🚧 Mostly handled (needs testing)
 
 ### 📋 App Store Specific
-- [ ] **App Icon**: ❌ Not yet created
+- [x] **App Icon**: ✅ 10×10 PNG in `flipchanger-app/images/flipchanger.png`, `fap_icon` in manifest
 - [ ] **App Description**: 🚧 Needs finalization
 - [ ] **Version Number**: ⚠️ Need to add version field to manifest
 - [ ] **Author Information**: ⚠️ Need to add author field
@@ -85,7 +85,7 @@ This document tracks our progress toward submission to the official Flipper Zero
 ### 🚧 Needs Improvement (Before Submission)
 
 1. **App Metadata**: Missing/Incomplete
-   - App icon: ❌ Need to create
+   - App icon: ✅ Done (10×10 PNG, fap_icon in manifest)
    - Version field: ⚠️ Need to add to manifest
    - Author field: ⚠️ Need to add to manifest
    - Description: 🚧 Needs finalization
@@ -94,10 +94,10 @@ This document tracks our progress toward submission to the official Flipper Zero
    - Code comments: 🚧 Sparse
    - Documentation: 🚧 Needs more inline docs
 
-3. **User Experience**: Needs Polish
-   - Track editing: 🚧 Incomplete (structure exists)
-   - Field display: 🚧 Long text handling
-   - UI/UX improvements: 🚧 Pop-out views needed
+3. **User Experience**: Improved
+   - Track editing: ✅ Complete (title, duration)
+   - Field display: ✅ 4 fields visible, scrollable
+   - UI/UX: ✅ Full-screen layout, Help menu, wrap-around scroll
 
 4. **Testing**: Needs More Coverage
    - Edge cases: 🚧 Mostly handled
@@ -106,7 +106,7 @@ This document tracks our progress toward submission to the official Flipper Zero
 
 ### ❌ Missing Requirements (Critical)
 
-1. **App Icon**: ❌ Required for submission
+1. **App Icon**: ✅ Done (10×10 PNG)
 2. **Version Number**: ❌ Should be in manifest
 3. **Author Information**: ❌ Should be in manifest
 
@@ -147,7 +147,7 @@ Based on Flipper Zero documentation, the submission process is:
 ## Action Items for Submission
 
 ### Priority 1: Critical (Must Have)
-- [ ] **Create app icon** (64x64 or specified size)
+- [x] **Create app icon** ✅ (10×10 PNG in manifest)
 - [ ] **Add version to manifest** (`version=1.0.0`)
 - [ ] **Add author to manifest** (`author="Your Name"`)
 - [ ] **Finalize app description** (for catalog entry)
@@ -170,14 +170,22 @@ Based on Flipper Zero documentation, the submission process is:
 
 ## Version History
 
-### v1.0.0 (Target Release)
+### v1.0.0–v1.0.3 (Current)
 - ✅ Core CD tracking functionality
 - ✅ JSON storage (save/load)
-- ✅ Add/Edit CD interface
-- ✅ Track management (add/delete)
+- ✅ Add/Edit CD interface (4 fields visible)
+- ✅ Track management (add/delete/edit title+duration)
 - ✅ Data persistence
 - ✅ Memory optimization
-- 🚧 UI/UX improvements in progress
+- ✅ Full-screen layout (5 slots, 4 fields, 5 tracks)
+- ✅ Help menu, wrap-around scroll, long-press skip by 10
+- ✅ Custom app icon
+
+### v1.1.0 (Planned – Next)
+- Multi-Changer support (Name, Location, Slots per Changer)
+- Changer select at top menu; header shows Changer name
+- Changer admin (Add, Edit, Delete); persist last-used
+- Splash screen on launch
 
 ---
 
@@ -282,7 +290,7 @@ Based on Flipper Zero documentation, the submission process is:
 - App is functionally complete and stable
 - Core features work as intended
 - Need to focus on polish and compliance
-- Icon creation is highest priority blocker
+- Icon complete; version/author in manifest still needed
 - Submission process seems straightforward (PR-based)
 - Repository successfully migrated to Dolphin-Developers organization
 

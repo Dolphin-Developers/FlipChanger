@@ -18,15 +18,19 @@ The main FlipChanger application for Flipper Zero - tracks CD metadata for CD ch
 - **Data Persistence**: All changes saved to SD card ✅ WORKING
 - **Device Testing**: ✅ App successfully deployed and running on Flipper Zero
 
-### ✅ Recent Improvements (v1.0.1)
+### ✅ Recent Improvements (v1.0.3)
 
-- **Track Editing**: ✅ Complete - Title and duration editing with character input
-- **Field Display**: ✅ Scrolling implemented for long text fields
-- **Scrollable Menus**: ✅ Slot details view shows 3 items at a time
-- **Settings/Statistics**: ✅ Menu stubs added (functionality coming soon)
-- **Footer Improvements**: ✅ Two-line footers with abbreviations (U/D, L/R, K, B, LB)
-- **Year Field**: ✅ Numbers only input with proper navigation
-- **Long Press BACK**: ✅ Exit functionality throughout app
+- **Full-Screen Layout**: 5 slots, 4 fields (slot details/add-edit), 5 tracks visible
+- **Help Menu**: Footers removed; instructions in Help (Main menu or R key)
+- **Wrap-Around Scroll**: Screen scrolls to show selection when wrapping at list ends
+- **Track Editing**: Title and duration with character input
+- **Settings/Statistics**: Slot count config; statistics (albums, tracks, time)
+- **Long Press**: BACK to exit; Up/Down skip by 10 slots
+
+### 📋 Planned (v1.1.0)
+
+- **Multi-Changer**: Changers (Name, Location, Slots); select at top menu; header shows Changer name; Add/Edit/Delete; persist last-used
+- **Splash Screen**: Brief FlipChanger logo on launch
 
 ### 🚧 In Progress / Needs Polish
 

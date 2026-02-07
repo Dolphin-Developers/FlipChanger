@@ -15,25 +15,27 @@ FlipChanger is an open-source application for the Flipper Zero that helps users 
 
 ✅ **Active Development** - Core features implemented and working! App builds, runs, and persists data successfully on Flipper Zero.
 
-### Current Progress (January 2025)
+### Current Progress (February 2025)
 
 - ✅ **Development Environment**: uFBT installed and configured
 - ✅ **App Structure**: Complete C/C++ application structure
-- ✅ **Core UI**: Main menu, slot browser, slot details view
-- ✅ **Navigation**: Full menu system working
+- ✅ **Core UI**: Main menu (5 options including Help), slot browser, slot details view
+- ✅ **Navigation**: Full menu system, wrap-around with scroll, long-press skip by 10
 - ✅ **Memory Optimization**: SD card-based caching system (supports 200 slots)
 - ✅ **Build System**: App builds and deploys successfully
-- ✅ **JSON Storage**: Save/load functionality working
+- ✅ **JSON Storage**: Save/load working; track data now persists correctly
 - ✅ **Add/Edit Interface**: Character-by-character input working with scrolling
-- ✅ **Track Management**: Add/delete/edit tracks working (title and duration editing complete)
-- ✅ **Critical Bug Fixes**: All major crashes resolved
-- ✅ **UI/UX Improvements**: Scrollable menus, improved footers, long press BACK support
-- ✅ **Settings/Statistics**: Menu stubs added (functionality in progress)
-- 📋 **Planned**: Settings functionality, Statistics calculations, Enhanced fields, IR integration
+- ✅ **Track Management**: Add/delete/edit tracks (title and duration complete)
+- ✅ **Help System**: Instructions in Help menu; R key opens Help in list views
+- ✅ **Settings/Statistics**: Settings (slot count), Statistics (cached slots)
+- 📋 **Planned**: Multi-Changer (Name, Location, Slots per Changer; select at top menu; persist last-used)
+- 📋 **Planned**: Splash screen on launch
+- 📋 **Planned**: Enhanced fields, IR integration
 
 ## Documentation
 
 - [Product Vision Document](docs/product_vision.md) - Complete project vision and goals
+- [Changers Design](docs/CHANGERS_DESIGN.md) - Multi-Changer architecture (next phase)
 - [Development Setup Guide](docs/development_setup.md) - Flipper Zero development research
 - [Quick Start Checklist](docs/quick_start_checklist.md) - Development checklist
 - [Progress Report](docs/PROGRESS.md) - Current development status and achievements
