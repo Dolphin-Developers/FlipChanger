@@ -158,7 +158,7 @@ Based on Flipper Zero documentation, the submission process is:
 - [ ] **Create screenshots** (app in action)
 - [ ] **Test all edge cases** (comprehensive testing)
 - [x] **Add version history** ✅ (CHANGELOG.md)
-- [ ] **Improve error messages** (user-friendly)
+- [x] **Improve error messages** ✅ (actionable: "Press Back", "Restart app")
 
 ### Priority 3: Nice to Have (Optional)
 - [ ] **Create video demo** (showcase app)

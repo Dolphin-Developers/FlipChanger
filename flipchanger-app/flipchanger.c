@@ -1001,16 +1001,15 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
     
     if(app->current_slot_index < 0 || app->current_slot_index >= app->total_slots) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "Invalid slot");
+        canvas_draw_str(canvas, 5, 30, "Invalid. Press Back.");
         return;
     }
     
-    // Get slot from cache (cache should already be updated)
     Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
     
     if(!slot) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "Slot not loaded");
+        canvas_draw_str(canvas, 5, 30, "Loading. Press Back.");
         return;
     }
     
@@ -1178,7 +1177,7 @@ void flipchanger_draw_callback(Canvas* canvas, void* ctx) {
         default:
             canvas_clear(canvas);
             canvas_set_font(canvas, FontPrimary);
-            canvas_draw_str(canvas, 5, 30, "Unknown view");
+            canvas_draw_str(canvas, 5, 30, "Error. Press Back.");
             break;
     }
 }
@@ -1277,20 +1276,20 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     // Safety checks
     if(!app) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "App error");
+        canvas_draw_str(canvas, 5, 30, "Error. Restart app.");
         return;
     }
     
     if(app->current_slot_index < 0 || app->current_slot_index >= app->total_slots) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "Invalid slot");
+        canvas_draw_str(canvas, 5, 30, "Invalid. Press Back.");
         return;
     }
     
     Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
     if(!slot) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "Slot not loaded");
+        canvas_draw_str(canvas, 5, 30, "Loading. Press Back.");
         return;
     }
     
@@ -1558,14 +1557,14 @@ void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
     // Safety checks
     if(!app || app->current_slot_index < 0 || app->current_slot_index >= app->total_slots) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "Invalid slot");
+        canvas_draw_str(canvas, 5, 30, "Invalid. Press Back.");
         return;
     }
     
     Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
     if(!slot) {
         canvas_set_font(canvas, FontPrimary);
-        canvas_draw_str(canvas, 5, 30, "Slot not loaded");
+        canvas_draw_str(canvas, 5, 30, "Loading. Press Back.");
         return;
     }
     
