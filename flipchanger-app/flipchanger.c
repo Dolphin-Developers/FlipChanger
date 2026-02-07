@@ -1,8 +1,14 @@
 /**
  * FlipChanger - Main Application File
- * 
- * Tracks CD metadata for CD changers (3-200 discs)
- * Similar to MP3 ID3 tags for physical CDs
+ *
+ * Tracks CD metadata for physical CD changers (3-200 discs).
+ * Similar to MP3 ID3 tags: artist, album, year, genre, tracks, notes.
+ *
+ * Architecture:
+ *   - Multi-Changer: Each changer has name, location, slot count; own JSON file
+ *   - Cache: Only SLOT_CACHE_SIZE slots in RAM; rest on SD card
+ *   - pending_changer_switch: Defer load/save from input callback to main loop (avoids BusFault)
+ *   - Views: Main menu, Slot list, Slot details, Add/Edit CD, Track mgmt, Settings, Statistics, Changers
  */
 
 #include "flipchanger.h"
@@ -146,7 +152,7 @@ int32_t flipchanger_count_occupied_slots(FlipChangerApp* app) {
     return count;
 }
 
-// Helper: Skip whitespace in JSON
+/* === JSON helpers (lightweight parser - no external lib) === */
 static const char* skip_whitespace(const char* str) {
     while(*str == ' ' || *str == '\t' || *str == '\n' || *str == '\r') {
         str++;
@@ -211,9 +217,9 @@ static const char* read_json_bool(const char* json, bool* value) {
 // Helper: Write JSON string (escape quotes) - forward decl, defined later
 static void write_json_string(File* file, const char* str);
 
-// Character set for text input (used by Add/Edit Changer and CD)
+/* Character set for text input (Add/Edit Changer, CD fields). Index 39 = DEL. */
 static const char* CHAR_SET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .-,";
-#define CHAR_DEL_INDEX ((int32_t)39)  // strlen(CHAR_SET)
+#define CHAR_DEL_INDEX ((int32_t)39)
 
 // Helper: Find JSON key
 static const char* find_json_key(const char* json, const char* key) {
@@ -764,7 +770,7 @@ bool flipchanger_save_data(FlipChangerApp* app) {
     return result;
 }
 
-// Forward declarations
+/* === View drawing functions === */
 void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app);
 void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app);
 void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app);
@@ -1693,6 +1699,7 @@ void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
 }
 
 // Input callback
+/* === Input handling - routes to view-specific handlers === */
 void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
     FlipChangerApp* app = (FlipChangerApp*)ctx;
     
@@ -2905,7 +2912,10 @@ void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app) {
     canvas_draw_str(canvas, 5, y, range_str);
 }
 
-// Calculate statistics from JSON file (simplified, safe version)
+/**
+ * Calculate stats from cached slots only (avoids full JSON parse - stack safety).
+ * For 200-slot changer, full parse risks overflow; cache gives partial but safe stats.
+ */
 static void flipchanger_calculate_statistics(FlipChangerApp* app, int32_t* total_albums, int32_t* total_tracks, int32_t* total_seconds) {
     *total_albums = 0;
     *total_tracks = 0;

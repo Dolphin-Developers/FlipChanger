@@ -150,11 +150,11 @@ Based on Flipper Zero documentation, the submission process is:
 - [x] **Create app icon** ✅ (10×10 PNG in manifest)
 - [x] **Add version to manifest** ✅ (`fap_version="1.2.0"`)
 - [x] **Add author to manifest** ✅ (`fap_author="FlipChanger Contributors"`)
-- [ ] **Finalize app description** (for catalog entry)
+- [x] **Finalize app description** ✅ (fap_description in manifest)
 - [ ] **Review official submission guidelines** (find exact requirements)
 
 ### Priority 2: Important (Should Have)
-- [ ] **Improve code comments** (documentation)
+- [x] **Improve code comments** ✅ (architecture, sections, key logic)
 - [ ] **Create screenshots** (app in action)
 - [ ] **Test all edge cases** (comprehensive testing)
 - [x] **Add version history** ✅ (CHANGELOG.md)

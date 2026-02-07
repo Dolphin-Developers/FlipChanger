@@ -1,7 +1,8 @@
 /**
  * FlipChanger - Header File
- * 
- * Main application header with type definitions and function declarations
+ *
+ * Type definitions and function declarations.
+ * Storage: flipchanger_changers.json (registry), flipchanger_<id>.json (per-changer slots).
  */
 
 #pragma once

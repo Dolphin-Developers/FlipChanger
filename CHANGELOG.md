@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- Code comments: architecture overview, section dividers, key logic notes
+- App description finalized for catalog (fap_description)
+
+---
+
 ## [1.2.0] - 2025-02-10
 
 ### Added
