@@ -8,11 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- TESTING_CHECKLIST.md: v1.2.0 section (Disc #, Album Artist, error messages); phase gate note
+
 ### Changed
 
-- Code comments: architecture overview, section dividers, key logic notes
-- App description finalized for catalog (fap_description)
-- Error messages: actionable text ("Press Back", "Restart app", "Loading. Press Back.")
+- PROGRESS.md, SUBMISSION_STATUS.md: on-device testing phase gate; status updated
 
 ---
 

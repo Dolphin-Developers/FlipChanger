@@ -8,11 +8,13 @@ This document tracks the development progress of the FlipChanger project.
 
 ## Overall Status
 
-**Current Phase**: Feature Implementation & Bug Fixes  
+**Current Phase**: On-device testing gate (v1.2.0)  
 **Build Status**: ✅ Successful  
-**Device Testing**: ✅ App runs on Flipper Zero  
+**Device Testing**: ⏳ Pending – v1.2.0 deployed; physical testing required  
 **Memory Status**: ✅ Optimized (SD card caching)  
 **Stability**: ✅ Stable (critical crashes fixed)
+
+> **Phase gate**: Code complete for v1.2.0. TESTING_CHECKLIST.md updated. On-device testing by contributors needed before next submission steps.
 
 ---
 

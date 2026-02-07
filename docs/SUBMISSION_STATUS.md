@@ -1,7 +1,7 @@
 # FlipChanger - App Store Submission Status
 
-**Last Updated**: February 7, 2025  
-**Overall Readiness**: ~85% (Core complete, icon done, needs version/author)  
+**Last Updated**: February 10, 2025  
+**Overall Readiness**: ~90% (v1.2.0 complete; on-device testing gate)  
 **Repository**: https://github.com/Dolphin-Developers/FlipChanger
 
 ---
@@ -12,13 +12,13 @@
 |----------|--------|------------|
 | **Core Functionality** | ✅ Complete | 100% |
 | **Data Persistence** | ✅ Working | 100% |
-| **Code Quality** | 🚧 Good | 85% |
-| **Documentation** | ✅ Good | 90% |
-| **App Metadata** | ❌ Missing | 20% |
-| **Testing** | 🚧 Adequate | 75% |
+| **Code Quality** | ✅ Good | 90% |
+| **Documentation** | ✅ Good | 95% |
+| **App Metadata** | ✅ Complete | 100% |
+| **Testing** | ⏳ Gate | On-device testing pending |
 | **Compliance** | ✅ Met | 95% |
 
-**Overall**: Ready for final polish, then submission
+**Overall**: v1.2.0 deployed. **Phase gate: On-device testing required** before submission. See TESTING_CHECKLIST.md.
 
 ---
 

@@ -29,6 +29,10 @@ FlipChanger is an open-source application for the Flipper Zero that helps users 
 - ✅ **Settings/Statistics**: Slot count per Changer; statistics
 - 📋 **Planned**: IR integration
 
+## Contributing & Testing
+
+**v1.2.0 testing gate**: On-device testing is needed before submission. See [TESTING_CHECKLIST.md](docs/TESTING_CHECKLIST.md). Contributors with a Flipper Zero can build, deploy (`ufbt launch`), and run through the checklist.
+
 ## Documentation
 
 - [Product Vision Document](docs/product_vision.md) - Complete project vision and goals

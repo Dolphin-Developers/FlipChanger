@@ -1,8 +1,20 @@
 # FlipChanger Testing Checklist
 
-**Date**: February 8, 2025  
-**Version**: v1.1.0 (Multi-Changer, Splash)  
+**Date**: February 10, 2025  
+**Version**: v1.2.0 (Enhanced Fields, App Store Prep)  
 **Tester**: _______________
+
+> **Phase gate**: This checklist is ready for **on-device testing**. All code changes are committed and deployed. Testing must be done physically on a Flipper Zero; automated/emulator testing cannot fully validate memory, SD card, or UI behavior.
+
+---
+
+## v1.2.0 Changes (Feb 2025) – NEW
+- **Disc Number** – Field in Add/Edit (0=unset, 1–999); shown in slot details when set
+- **Album Artist** – Field for compilations; Add/Edit and slot details
+- **Add/Edit field order** – Artist, Album Artist, Album, Disc #, Year, Genre, Notes, Tracks, Save
+- **Slot details** – Shows Album Artist, Disc, Notes when present (in addition to Artist, Album, Year, Genre, Tracks)
+- **Error messages** – Actionable text: "Press Back", "Restart app", "Loading. Press Back."
+- **App manifest** – fap_version=1.2.0, fap_author, fap_description
 
 ---
 
@@ -101,7 +113,7 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 ### 3.2 Occupied Slot Display
 - [ ] Shows slot number in header
-- [ ] Shows all fields: Artist, Album, Year, Genre, Tracks
+- [ ] Shows fields when present: Artist, Album Artist, Album, Disc, Year, Genre, Notes, Tracks
 - [ ] Fields are scrollable (shows 4 at a time)
 - [ ] UP/DOWN scrolls through fields
 - [ ] Footer shows "U/D:Scroll K:Edit B:Return"
@@ -117,7 +129,7 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 ### 4.1 View Display
 - [ ] Shows slot number in header
-- [ ] Shows all fields: Artist, Album, Year, Genre, Notes, Tracks, Save
+- [ ] Shows all fields: Artist, Album Artist, Album, Disc #, Year, Genre, Notes, Tracks, Save
 - [ ] Shows 4 fields at a time (scrollable)
 - [ ] Selected field is highlighted
 - [ ] Footer text visible and readable (two lines)
@@ -129,12 +141,12 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 ### 4.2 Field Navigation
 - [ ] UP/DOWN navigates between fields when at start (cursor pos 0, char selection 0)
 - [ ] UP/DOWN changes character selection when editing
-- [ ] Can navigate to all fields: Artist, Album, Year, Genre, Notes, Tracks, Save
+- [ ] Can navigate to all fields: Artist, Album Artist, Album, Disc #, Year, Genre, Notes, Tracks, Save
 - [ ] Navigation wraps around (from Save to Artist, etc.)
 
 **Notes**: _________________________________________________
 
-### 4.3 Text Field Editing (Artist, Album, Genre, Notes)
+### 4.3 Text Field Editing (Artist, Album Artist, Album, Genre, Notes)
 - [ ] Can select characters with UP/DOWN
 - [ ] Character picker shows selected character (e.g., "[A]")
 - [ ] DEL option appears in character picker
@@ -149,7 +161,18 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 **Notes**: _________________________________________________
 
-### 4.4 Year Field Editing
+### 4.4 Disc Number Field Editing (v1.2.0)
+- [ ] Disc # field shows "-" when unset, number when set
+- [ ] Accepts numbers only (0-9); 0 = unset (or leave as -)
+- [ ] UP/DOWN at start navigates to previous/next field
+- [ ] UP/DOWN when editing changes number selection (0-9)
+- [ ] OK adds digit; BACK deletes last digit
+- [ ] Long press BACK exits to slot details
+- [ ] Value saves and displays in slot details when > 0
+
+**Notes**: _________________________________________________
+
+### 4.5 Year Field Editing
 - [ ] Year field accepts numbers only (0-9)
 - [ ] UP/DOWN at start (0) navigates to previous/next field
 - [ ] UP/DOWN when editing changes number selection (0-9)
@@ -160,14 +183,14 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 **Notes**: _________________________________________________
 
-### 4.5 Tracks Field
+### 4.6 Tracks Field
 - [ ] Tracks field shows track count
 - [ ] OK button opens Track Management view
 - [ ] Can navigate to/from Tracks field
 
 **Notes**: _________________________________________________
 
-### 4.6 Save Button
+### 4.7 Save Button
 - [ ] Save button is accessible
 - [ ] OK on Save button saves the CD
 - [ ] Returns to slot details after save
@@ -318,8 +341,8 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 **Notes**: _________________________________________________
 
 ### 8.3 File Operations
-- [ ] JSON file created on SD card
-- [ ] File path: `/ext/apps/Tools/flipchanger_data.json`
+- [ ] Changer registry: `/ext/apps/Tools/flipchanger_changers.json`
+- [ ] Per-changer slots: `/ext/apps/Tools/flipchanger_<id>.json` (e.g. flipchanger_changer_0.json)
 - [ ] File updates when data changes
 - [ ] No file corruption
 
@@ -339,7 +362,7 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 **Notes**: _________________________________________________
 
 ### 9.2 Menu Scrolling
-- [ ] Slot details shows 3 items at a time
+- [ ] Slot details shows 4 items at a time
 - [ ] Add/Edit shows 4 fields at a time
 - [ ] Scrolling works smoothly
 - [ ] Selected item always visible
@@ -373,7 +396,15 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 
 **Notes**: _________________________________________________
 
-### 10.3 Edge Cases
+### 10.3 Error Message Display
+- [ ] Invalid slot shows "Invalid. Press Back."
+- [ ] Slot not in cache shows "Loading. Press Back."
+- [ ] Unknown view shows "Error. Press Back."
+- [ ] Messages are readable (no truncation)
+
+**Notes**: _________________________________________________
+
+### 10.4 Edge Cases
 - [ ] No crash with empty fields
 - [ ] No crash with maximum values
 - [ ] No crash with minimum values (3 slots)
