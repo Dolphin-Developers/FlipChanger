@@ -61,9 +61,11 @@ typedef struct {
 
 // CD information
 typedef struct {
-    char artist[MAX_ARTIST_LENGTH];
+    char artist[MAX_ARTIST_LENGTH];       // Primary/track artist
+    char album_artist[MAX_ARTIST_LENGTH]; // Album artist (e.g. "Various Artists" for compilations)
     char album[MAX_ALBUM_LENGTH];
     int32_t year;
+    int32_t disc_number;                  // 0 = not set, 1+ = disc number in set
     char genre[MAX_GENRE_LENGTH];
     Track tracks[MAX_TRACKS];
     int32_t track_count;
@@ -135,7 +137,9 @@ typedef struct {
     // Add/Edit Input State
     enum {
         FIELD_ARTIST,
+        FIELD_ALBUM_ARTIST,
         FIELD_ALBUM,
+        FIELD_DISC_NUMBER,
         FIELD_YEAR,
         FIELD_GENRE,
         FIELD_NOTES,

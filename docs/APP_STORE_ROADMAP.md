@@ -148,8 +148,8 @@ Based on Flipper Zero documentation, the submission process is:
 
 ### Priority 1: Critical (Must Have)
 - [x] **Create app icon** ✅ (10×10 PNG in manifest)
-- [ ] **Add version to manifest** (`version=1.0.0`)
-- [ ] **Add author to manifest** (`author="Your Name"`)
+- [x] **Add version to manifest** ✅ (`fap_version="1.2.0"`)
+- [x] **Add author to manifest** ✅ (`fap_author="FlipChanger Contributors"`)
 - [ ] **Finalize app description** (for catalog entry)
 - [ ] **Review official submission guidelines** (find exact requirements)
 
@@ -186,6 +186,12 @@ Based on Flipper Zero documentation, the submission process is:
 - Changer select at top menu; header shows Changer name; main menu scrollable
 - Changer admin (Add, Edit, Delete); persist last-used; migration from legacy
 - Splash screen on launch
+
+### v1.2.0 (Feb 2025) – Complete
+- Enhanced fields: Disc Number (0=unset, 1–999), Album Artist (for compilations)
+- Add/Edit form: Artist, Album Artist, Album, Disc #, Year, Genre, Notes, Tracks
+- Slot details: shows album artist and disc number when set
+- App manifest: fap_version, fap_author, fap_description for App Store
 
 ---
 

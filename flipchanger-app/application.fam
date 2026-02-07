@@ -8,4 +8,7 @@ App(
     stack_size=3072,  # Increased to prevent stack overflow during save
     cdefines=["APP_FLIPCHANGER"],
     fap_icon="images/flipchanger.png",
+    fap_version="1.2.0",
+    fap_author="FlipChanger Contributors",
+    fap_description="Track physical CDs in a changer: artist, album, tracks, metadata on SD card.",
 )

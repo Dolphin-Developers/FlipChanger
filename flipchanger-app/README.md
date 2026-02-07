@@ -18,7 +18,12 @@ The main FlipChanger application for Flipper Zero - tracks CD metadata for CD ch
 - **Data Persistence**: All changes saved to SD card ✅ WORKING
 - **Device Testing**: ✅ App successfully deployed and running on Flipper Zero
 
-### ✅ Recent Improvements (v1.1.0)
+### ✅ Recent Improvements (v1.2.0)
+
+- **Enhanced Fields**: Disc Number (0=unset, 1–999), Album Artist (for compilations/DJ sets)
+- **Add/Edit**: Artist, Album Artist, Album, Disc #, Year, Genre, Notes, Tracks; slot details shows all when set
+
+### ✅ v1.1.0 (Feb 2025)
 
 - **Multi-Changer**: Changers (Name, Location, Slots); select at top menu; header shows Changer name; Add/Edit/Delete; persist last-used
 - **Splash Screen**: Brief FlipChanger logo on launch (~1.2s or key to skip)
@@ -39,7 +44,6 @@ The main FlipChanger application for Flipper Zero - tracks CD metadata for CD ch
 
 - **Settings Menu**: Implement slot count configuration and settings persistence
 - **Statistics View**: Implement collection statistics calculations and display
-- **Enhanced Fields**: Add "Disc Number", split Artist into "Track Artist" and "Album Artist"
 - **IR Integration**: Control CD changer via infrared
 
 ## Building the App
@@ -139,11 +143,13 @@ typedef struct {
 
 ```c
 typedef struct {
-    char artist[64];
+    char artist[64];         // Primary/track artist
+    char album_artist[64];   // Album artist (e.g. "Various Artists" for compilations)
     char album[64];
     int32_t year;
+    int32_t disc_number;     // 0=unset, 1+=disc number in set
     char genre[32];
-    Track tracks[20];       // Track listings (reduced for memory)
+    Track tracks[20];        // Track listings (reduced for memory)
     int32_t track_count;
     char notes[256];
 } CD;

@@ -2,7 +2,7 @@
 
 This document tracks the development progress of the FlipChanger project.
 
-**Last Updated**: February 8, 2025
+**Last Updated**: February 10, 2025
 
 ---
 
@@ -158,10 +158,10 @@ See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for architecture.
 
 ## Planned Features
 
-### 📋 Phase 12: Enhanced Fields
-- [ ] Add "Disc Number" field
-- [ ] Split Artist into "Track Artist" and "Album Artist"
-- [ ] Improved metadata structure for compilations/DJ sets
+### ✅ Phase 12: Enhanced Fields (Complete)
+- [x] Add "Disc Number" field (0=unset, 1–999)
+- [x] Add "Album Artist" field (for compilations/DJ sets)
+- [x] JSON load/save; Add/Edit form; Slot details display
 
 ### 📋 Phase 13: Settings Menu (Partial)
 - [x] Settings menu view
@@ -217,7 +217,7 @@ See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for architecture.
 - **Deployment**: Via USB (57-115 KB/s transfer rate)
 
 ### Code Quality
-- **Lines of Code**: ~2300+ (main application)
+- **Lines of Code**: ~3000 (main application)
 - **Compilation**: ✅ No warnings/errors
 - **Memory Safety**: ✅ Comprehensive bounds checking and validation
 - **Error Handling**: Robust (extensive safety checks added)
@@ -251,22 +251,18 @@ See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for architecture.
 1. **Settings Menu**: Slot count config working; load on startup uses saved file
 2. **Statistics View**: Albums/tracks/time from cached slots; artist/genre breakdown future
 3. **Pop-out Views**: Could add full-screen field editing views for better usability (future enhancement)
-4. **Additional Fields**: Need to add "Disc Number" and split Artist fields
-5. **Track Management**: Button actions (LEFT/RIGHT for add/delete) could be clearer
+4. **Track Management**: Button actions (LEFT/RIGHT for add/delete) could be clearer
 
 ---
 
 ## Next Steps (Priority Order)
 
 1. **Test Current Build** (Immediate)
-   - Verify all recent UI/UX improvements (v1.0.3)
-   - Test full-screen layout (5 slots, 4 fields, 5 tracks)
-   - Test Help menu and wrap-around scroll
-   - Test Settings/Statistics
-   - Test Year field numeric input
-   - Test long press BACK and long press Up/Down skip by 10
+   - Verify Phase 12 fields (Disc Number, Album Artist) in Add/Edit and Slot details
+   - Test full-screen layout, Help menu, wrap-around scroll
+   - Test Settings/Statistics, long press BACK and skip by 10
 
-2. **Implement Settings Menu** (High Priority)
+2. **Settings / Statistics** (High Priority)
    - Slot count configuration (3-200)
    - Save/load settings to JSON
    - Settings persistence
@@ -276,11 +272,7 @@ See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for architecture.
    - Calculate CDs by artist/genre
    - Display collection statistics
 
-4. **Enhanced Fields** (Medium Priority)
-   - Add "Disc Number" field
-   - Split Artist into Track/Album Artist
-
-5. **Polish & Testing** (Quality)
+4. **Polish & Testing** (Quality)
    - Comprehensive testing
    - User documentation
    - Code comments

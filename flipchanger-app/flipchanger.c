@@ -533,25 +533,28 @@ bool flipchanger_load_data(FlipChangerApp* app) {
         }
         
         if(slot->occupied) {
-            // Parse artist
             const char* artist_key = find_json_key(p, "artist");
             if(artist_key) {
                 read_json_string(artist_key, slot->cd.artist, MAX_ARTIST_LENGTH);
             }
-            
-            // Parse album
+            const char* album_artist_key = find_json_key(p, "album_artist");
+            if(album_artist_key) {
+                read_json_string(album_artist_key, slot->cd.album_artist, MAX_ARTIST_LENGTH);
+            }
             const char* album_key = find_json_key(p, "album");
             if(album_key) {
                 read_json_string(album_key, slot->cd.album, MAX_ALBUM_LENGTH);
             }
             
-            // Parse year
             const char* year_key = find_json_key(p, "year");
             if(year_key) {
                 read_json_int(year_key, &slot->cd.year);
             }
-            
-            // Parse genre
+            const char* disc_key = find_json_key(p, "disc_number");
+            if(disc_key) {
+                read_json_int(disc_key, &slot->cd.disc_number);
+                if(slot->cd.disc_number < 0) slot->cd.disc_number = 0;
+            }
             const char* genre_key = find_json_key(p, "genre");
             if(genre_key) {
                 read_json_string(genre_key, slot->cd.genre, MAX_GENRE_LENGTH);
@@ -693,22 +696,19 @@ bool flipchanger_save_data(FlipChangerApp* app) {
         storage_file_write(file, (const uint8_t*)occ_str, strlen(occ_str));
         
         if(slot->occupied) {
-            // Artist
             storage_file_write(file, (const uint8_t*)"\"artist\":", 9);
             write_json_string(file, slot->cd.artist);
             storage_file_write(file, (const uint8_t*)",", 1);
-            
-            // Album
+            storage_file_write(file, (const uint8_t*)"\"album_artist\":", 15);
+            write_json_string(file, slot->cd.album_artist);
+            storage_file_write(file, (const uint8_t*)",", 1);
             storage_file_write(file, (const uint8_t*)"\"album\":", 8);
             write_json_string(file, slot->cd.album);
             storage_file_write(file, (const uint8_t*)",", 1);
             
-            // Year
             char year_str[32];
-            snprintf(year_str, sizeof(year_str), "\"year\":%ld,", (long)slot->cd.year);
+            snprintf(year_str, sizeof(year_str), "\"year\":%ld,\"disc_number\":%ld,", (long)slot->cd.year, (long)slot->cd.disc_number);
             storage_file_write(file, (const uint8_t*)year_str, strlen(year_str));
-            
-            // Genre
             storage_file_write(file, (const uint8_t*)"\"genre\":", 8);
             write_json_string(file, slot->cd.genre);
             storage_file_write(file, (const uint8_t*)",", 1);
@@ -1031,10 +1031,9 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         bool visible;
     } DetailField;
     
-    DetailField fields[5];
+    DetailField fields[10];
     int32_t field_count = 0;
     
-    // Artist
     if(strlen(slot->cd.artist) > 0) {
         fields[field_count].label = "Artist:";
         strncpy(fields[field_count].value, slot->cd.artist, sizeof(fields[field_count].value) - 1);
@@ -1042,8 +1041,13 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         fields[field_count].visible = true;
         field_count++;
     }
-    
-    // Album
+    if(strlen(slot->cd.album_artist) > 0) {
+        fields[field_count].label = "Album Artist:";
+        strncpy(fields[field_count].value, slot->cd.album_artist, sizeof(fields[field_count].value) - 1);
+        fields[field_count].value[sizeof(fields[field_count].value) - 1] = '\0';
+        fields[field_count].visible = true;
+        field_count++;
+    }
     if(strlen(slot->cd.album) > 0) {
         fields[field_count].label = "Album:";
         strncpy(fields[field_count].value, slot->cd.album, sizeof(fields[field_count].value) - 1);
@@ -1051,16 +1055,18 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         fields[field_count].visible = true;
         field_count++;
     }
-    
-    // Year
+    if(slot->cd.disc_number > 0) {
+        fields[field_count].label = "Disc:";
+        snprintf(fields[field_count].value, sizeof(fields[field_count].value), "%ld", (long)slot->cd.disc_number);
+        fields[field_count].visible = true;
+        field_count++;
+    }
     if(slot->cd.year > 0) {
         fields[field_count].label = "Year:";
         snprintf(fields[field_count].value, sizeof(fields[field_count].value), "%ld", (long)slot->cd.year);
         fields[field_count].visible = true;
         field_count++;
     }
-    
-    // Genre
     if(strlen(slot->cd.genre) > 0) {
         fields[field_count].label = "Genre:";
         strncpy(fields[field_count].value, slot->cd.genre, sizeof(fields[field_count].value) - 1);
@@ -1068,8 +1074,13 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         fields[field_count].visible = true;
         field_count++;
     }
-    
-    // Tracks
+    if(strlen(slot->cd.notes) > 0) {
+        fields[field_count].label = "Notes:";
+        strncpy(fields[field_count].value, slot->cd.notes, sizeof(fields[field_count].value) - 1);
+        fields[field_count].value[sizeof(fields[field_count].value) - 1] = '\0';
+        fields[field_count].visible = true;
+        field_count++;
+    }
     if(slot->cd.track_count > 0) {
         fields[field_count].label = "Tracks:";
         snprintf(fields[field_count].value, sizeof(fields[field_count].value), "%ld", (long)slot->cd.track_count);
@@ -1246,6 +1257,7 @@ void flipchanger_show_add_edit(FlipChangerApp* app, int32_t slot_index, bool is_
         slot->cd.year = 0;
         slot->cd.track_count = 0;
         slot->cd.artist[0] = '\0';
+        slot->cd.album_artist[0] = '\0';
         slot->cd.album[0] = '\0';
         slot->cd.genre[0] = '\0';
         slot->cd.notes[0] = '\0';
@@ -1297,10 +1309,11 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     canvas_set_font(canvas, FontSecondary);
     int32_t y = 16;
     
-    // Field labels and values
     const char* field_labels[] = {
         "Artist:",
+        "Album Artist:",
         "Album:",
+        "Disc #:",
         "Year:",
         "Genre:",
         "Notes:",
@@ -1309,7 +1322,9 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     
     char* field_values[] = {
         slot->cd.artist,
+        slot->cd.album_artist,
         slot->cd.album,
+        NULL,  // Disc # handled separately
         NULL,  // Year handled separately
         slot->cd.genre,
         slot->cd.notes,
@@ -1339,30 +1354,50 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         
         canvas_draw_str(canvas, 5, y, field_labels[i]);
         
-        // Draw field value
-        if(i == FIELD_YEAR) {
+        if(i == FIELD_DISC_NUMBER) {
+            char disc_str[16];
+            if(slot->cd.disc_number > 0) {
+                snprintf(disc_str, sizeof(disc_str), "%ld", (long)slot->cd.disc_number);
+            } else {
+                disc_str[0] = '-'; disc_str[1] = '\0';  // - = unset
+            }
+            int32_t x_pos = 40;
+            canvas_draw_str(canvas, x_pos, y, disc_str);
+            if(is_selected) {
+                int32_t len = strlen(disc_str);
+                int32_t cursor_x = x_pos + (len * 6);
+                if(cursor_x < 128) {
+                    canvas_draw_line(canvas, cursor_x, y, cursor_x, y - 8);
+                }
+                int32_t char_selection = app->edit_char_selection;
+                if(char_selection < 26 || char_selection >= 36) {
+                    char_selection = 26;
+                }
+                if(char_selection >= 26 && char_selection < 36) {
+                    int32_t digit = char_selection - 26;
+                    char digit_display[4];
+                    snprintf(digit_display, sizeof(digit_display), "[%ld]", (long)digit);
+                    canvas_draw_str(canvas, 100, y, digit_display);
+                }
+            }
+        } else if(i == FIELD_YEAR) {
             char year_str[32];
             if(slot->cd.year > 0) {
                 snprintf(year_str, sizeof(year_str), "%ld", (long)slot->cd.year);
             } else {
                 snprintf(year_str, sizeof(year_str), "0");
             }
-            
-            // Show cursor for year
             int32_t x_pos = 40;
             canvas_draw_str(canvas, x_pos, y, year_str);
             if(is_selected) {
-                // Show cursor at end of year string
                 int32_t year_len = strlen(year_str);
                 int32_t cursor_x = x_pos + (year_len * 6);
                 if(cursor_x < 128) {
                     canvas_draw_line(canvas, cursor_x, y, cursor_x, y - 8);
                 }
-                
-                // Show number picker (0-9) - ensure selection is in valid range
                 int32_t char_selection = app->edit_char_selection;
                 if(char_selection < 26 || char_selection >= 36) {
-                    char_selection = 26; // Default to '0' if out of range
+                    char_selection = 26;
                 }
                 if(char_selection >= 26 && char_selection < 36) {
                     int32_t digit = char_selection - 26;
@@ -1375,15 +1410,14 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             char* value = field_values[i];
             int32_t max_len = 0;
             
-            // Safety check - ensure value is valid
-            if(!value && i != FIELD_YEAR && i != FIELD_TRACKS) {
+            if(!value && i != FIELD_YEAR && i != FIELD_DISC_NUMBER && i != FIELD_TRACKS) {
                 // Should not happen, but handle gracefully
                 continue;
             }
             
-            // Get max length for field
             switch(i) {
                 case FIELD_ARTIST: max_len = MAX_ARTIST_LENGTH; break;
+                case FIELD_ALBUM_ARTIST: max_len = MAX_ARTIST_LENGTH; break;
                 case FIELD_ALBUM: max_len = MAX_ALBUM_LENGTH; break;
                 case FIELD_GENRE: max_len = MAX_GENRE_LENGTH; break;
                 case FIELD_NOTES: max_len = MAX_NOTES_LENGTH; break;
@@ -2041,45 +2075,75 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                 } else if(input_event->key == InputKeyBack) {
                     flipchanger_show_slot_details(app, app->current_slot_index);
                 }
-            } else if(app->edit_field == FIELD_YEAR) {
-                // Year field - numeric only (0-9)
-                // Initialize to '0' if not already in number range
+            } else if(app->edit_field == FIELD_DISC_NUMBER) {
                 if(app->edit_char_selection < 26 || app->edit_char_selection >= 36) {
-                    app->edit_char_selection = 26; // Start at '0'
+                    app->edit_char_selection = 26;
                 }
-                
                 if(input_event->key == InputKeyUp) {
-                    // Navigate to previous field if at start (0), otherwise change number selection
                     if(app->edit_char_selection == 26) {
-                        // At start (0) - navigate to previous field
                         app->edit_field = FIELD_ALBUM;
                         app->edit_char_pos = 0;
                         app->edit_char_selection = 0;
                         app->edit_field_scroll = 0;
                     } else {
-                        // Change number selection (previous number, 0-9)
                         app->edit_char_selection--;
                     }
                 } else if(input_event->key == InputKeyDown) {
-                    // Navigate to next field if at start (0), otherwise change number selection
                     if(app->edit_char_selection == 26) {
-                        // At start (0) - navigate to next field
+                        app->edit_field = FIELD_YEAR;
+                        app->edit_char_pos = 0;
+                        app->edit_char_selection = 26;
+                        app->edit_field_scroll = 0;
+                    } else {
+                        if(app->edit_char_selection < 35) {
+                            app->edit_char_selection++;
+                        } else {
+                            app->edit_char_selection = 26;
+                        }
+                    }
+                } else if(input_event->key == InputKeyOk) {
+                    if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
+                        int32_t digit = app->edit_char_selection - 26;
+                        slot->cd.disc_number = slot->cd.disc_number * 10 + digit;
+                        if(slot->cd.disc_number > 999) slot->cd.disc_number = 999;
+                        app->dirty = true;
+                    }
+                } else if(input_event->key == InputKeyBack) {
+                    if(is_long_press) {
+                        flipchanger_show_slot_details(app, app->current_slot_index);
+                    } else {
+                        slot->cd.disc_number = slot->cd.disc_number / 10;
+                        app->dirty = true;
+                    }
+                }
+            } else if(app->edit_field == FIELD_YEAR) {
+                if(app->edit_char_selection < 26 || app->edit_char_selection >= 36) {
+                    app->edit_char_selection = 26;
+                }
+                if(input_event->key == InputKeyUp) {
+                    if(app->edit_char_selection == 26) {
+                        app->edit_field = FIELD_DISC_NUMBER;
+                        app->edit_char_pos = 0;
+                        app->edit_char_selection = 26;
+                        app->edit_field_scroll = 0;
+                    } else {
+                        app->edit_char_selection--;
+                    }
+                } else if(input_event->key == InputKeyDown) {
+                    if(app->edit_char_selection == 26) {
                         app->edit_field = FIELD_GENRE;
                         app->edit_char_pos = 0;
                         app->edit_char_selection = 0;
                         app->edit_field_scroll = 0;
                     } else {
-                        // Change number selection (next number, 0-9)
                         if(app->edit_char_selection < 35) {
                             app->edit_char_selection++;
                         } else {
-                            app->edit_char_selection = 26; // Wrap to 0
+                            app->edit_char_selection = 26;
                         }
                     }
                 } else if(input_event->key == InputKeyOk) {
-                    // Add digit to year
                     if(app->edit_char_selection >= 26 && app->edit_char_selection < 36) {
-                        // Number selected (0-9)
                         int32_t digit = app->edit_char_selection - 26;
                         slot->cd.year = slot->cd.year * 10 + digit;
                         if(slot->cd.year > 9999) slot->cd.year = 9999;
@@ -2087,10 +2151,8 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     }
                 } else if(input_event->key == InputKeyBack) {
                     if(is_long_press) {
-                        // Long press - exit to slot details
                         flipchanger_show_slot_details(app, app->current_slot_index);
                     } else {
-                        // Short press - delete last digit
                         slot->cd.year = slot->cd.year / 10;
                         app->dirty = true;
                     }
@@ -2103,11 +2165,12 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     // If at default state (cursor at 0, selection at 0), navigate to previous field
                     // Otherwise, change character selection
                     if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
-                        // Navigate to previous field
                         if(app->edit_field == FIELD_ARTIST) {
-                            app->edit_field = FIELD_NOTES;  // Wrap to bottom
-                        } else if(app->edit_field == FIELD_ALBUM) {
+                            app->edit_field = FIELD_NOTES;
+                        } else if(app->edit_field == FIELD_ALBUM_ARTIST) {
                             app->edit_field = FIELD_ARTIST;
+                        } else if(app->edit_field == FIELD_ALBUM) {
+                            app->edit_field = FIELD_ALBUM_ARTIST;
                         } else if(app->edit_field == FIELD_GENRE) {
                             app->edit_field = FIELD_ALBUM;
                         } else if(app->edit_field == FIELD_NOTES) {
@@ -2127,15 +2190,16 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     // If at default state (cursor at 0, selection at 0), navigate to next field
                     // Otherwise, change character selection
                     if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
-                        // Navigate to next field
                         if(app->edit_field == FIELD_ARTIST) {
+                            app->edit_field = FIELD_ALBUM_ARTIST;
+                        } else if(app->edit_field == FIELD_ALBUM_ARTIST) {
                             app->edit_field = FIELD_ALBUM;
                         } else if(app->edit_field == FIELD_ALBUM) {
-                            app->edit_field = FIELD_GENRE;
+                            app->edit_field = FIELD_DISC_NUMBER;
                         } else if(app->edit_field == FIELD_GENRE) {
                             app->edit_field = FIELD_NOTES;
                         } else if(app->edit_field == FIELD_NOTES) {
-                            app->edit_field = FIELD_TRACKS;  // Next is Tracks
+                            app->edit_field = FIELD_TRACKS;
                         }
                         app->edit_field_scroll = 0;
                     } else {
@@ -2161,6 +2225,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                     switch(app->edit_field) {
                         case FIELD_ARTIST:
                             field = slot->cd.artist;
+                            max_len = MAX_ARTIST_LENGTH;
+                            break;
+                        case FIELD_ALBUM_ARTIST:
+                            field = slot->cd.album_artist;
                             max_len = MAX_ARTIST_LENGTH;
                             break;
                         case FIELD_ALBUM:
@@ -2208,6 +2276,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                         switch(app->edit_field) {
                             case FIELD_ARTIST:
                                 field = slot->cd.artist;
+                                max_len = MAX_ARTIST_LENGTH;
+                                break;
+                            case FIELD_ALBUM_ARTIST:
+                                field = slot->cd.album_artist;
                                 max_len = MAX_ARTIST_LENGTH;
                                 break;
                             case FIELD_ALBUM:
