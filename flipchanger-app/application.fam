@@ -7,4 +7,5 @@ App(
     requires=["gui", "storage"],
     stack_size=3072,  # Increased to prevent stack overflow during save
     cdefines=["APP_FLIPCHANGER"],
+    fap_icon="images/flipchanger.png",
 )
