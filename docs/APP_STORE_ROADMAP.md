@@ -157,7 +157,7 @@ Based on Flipper Zero documentation, the submission process is:
 - [ ] **Improve code comments** (documentation)
 - [ ] **Create screenshots** (app in action)
 - [ ] **Test all edge cases** (comprehensive testing)
-- [ ] **Add version history** (CHANGELOG.md)
+- [x] **Add version history** ✅ (CHANGELOG.md)
 - [ ] **Improve error messages** (user-friendly)
 
 ### Priority 3: Nice to Have (Optional)

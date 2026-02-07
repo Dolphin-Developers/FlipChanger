@@ -32,7 +32,8 @@ FlipChanger is an open-source application for the Flipper Zero that helps users 
 ## Documentation
 
 - [Product Vision Document](docs/product_vision.md) - Complete project vision and goals
-- [Changers Design](docs/CHANGERS_DESIGN.md) - Multi-Changer architecture (next phase)
+- [Changers Design](docs/CHANGERS_DESIGN.md) - Multi-Changer architecture
+- [Changelog](CHANGELOG.md) - Version history
 - [Development Setup Guide](docs/development_setup.md) - Flipper Zero development research
 - [Quick Start Checklist](docs/quick_start_checklist.md) - Development checklist
 - [Progress Report](docs/PROGRESS.md) - Current development status and achievements
