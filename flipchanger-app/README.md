@@ -18,19 +18,16 @@ The main FlipChanger application for Flipper Zero - tracks CD metadata for CD ch
 - **Data Persistence**: All changes saved to SD card ✅ WORKING
 - **Device Testing**: ✅ App successfully deployed and running on Flipper Zero
 
-### ✅ Recent Improvements (v1.0.3)
-
-- **Full-Screen Layout**: 5 slots, 4 fields (slot details/add-edit), 5 tracks visible
-- **Help Menu**: Footers removed; instructions in Help (Main menu or R key)
-- **Wrap-Around Scroll**: Screen scrolls to show selection when wrapping at list ends
-- **Track Editing**: Title and duration with character input
-- **Settings/Statistics**: Slot count config; statistics (albums, tracks, time)
-- **Long Press**: BACK to exit; Up/Down skip by 10 slots
-
-### 📋 Planned (v1.1.0)
+### ✅ Recent Improvements (v1.1.0)
 
 - **Multi-Changer**: Changers (Name, Location, Slots); select at top menu; header shows Changer name; Add/Edit/Delete; persist last-used
-- **Splash Screen**: Brief FlipChanger logo on launch
+- **Splash Screen**: Brief FlipChanger logo on launch (~1.2s or key to skip)
+- **Main Menu**: 6 items, scrollable (5 visible); Changers option
+- **Per-Changer Data**: Each Changer has own slots file; migration from legacy
+
+### ✅ v1.0.3 (Feb 2025)
+
+- **Full-Screen Layout**: 5 slots, 4 fields; Help menu; wrap-around scroll; long-press skip by 10
 
 ### 🚧 In Progress / Needs Polish
 
@@ -164,9 +161,9 @@ typedef struct {
 
 ## Storage
 
-Data is stored on the SD card at:
-- Path: `/ext/apps/Tools/flipchanger_data.json`
-- Format: JSON (structure ready, implementation in progress)
+Data is stored on the SD card:
+- **Changer registry**: `/ext/apps/Tools/flipchanger_changers.json`
+- **Per-Changer slots**: `/ext/apps/Tools/flipchanger_<id>.json` (e.g. `flipchanger_changer_0.json`)
 
 ### Storage Architecture
 
@@ -178,9 +175,8 @@ Data is stored on the SD card at:
 ### Current Status
 
 - ✅ Storage API integrated
-- ✅ Cache management functions (structure complete)
-- 🚧 JSON parsing (to be implemented)
-- 🚧 JSON generation (to be implemented)
+- ✅ JSON parsing and generation
+- ✅ Per-Changer slots files; changer registry
 
 ## Testing
 

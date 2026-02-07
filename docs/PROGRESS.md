@@ -2,7 +2,7 @@
 
 This document tracks the development progress of the FlipChanger project.
 
-**Last Updated**: February 7, 2025
+**Last Updated**: February 8, 2025
 
 ---
 
@@ -125,17 +125,19 @@ This document tracks the development progress of the FlipChanger project.
 - [x] **Wrap-around scroll** – Screen scrolls to show selection when wrapping (Up at slot 1→100, Down at 100→1)
 - [x] **Long-press Up/Down** – Skip by 10 slots (verified working with wrap-around)
 
-### 📋 Phase 11.7: Multi-Changer & Splash Screen (NEXT – Design Complete)
-- [ ] **Multi-Changer support** – Changers: Name, Location, Total Slots; each has own slots DB
-- [ ] **Changer registry** – `flipchanger_changers.json`; per-Changer `flipchanger_<id>.json`
-- [ ] **Changer select** – Top-level Changer list; header shows Changer name instead of "FlipChanger"
-- [ ] **Changer admin** – Add, Edit, Delete Changer; block delete if last
-- [ ] **Persistence** – Save/load `last_used_id` on exit/start
-- [ ] **Migration** – One-time from single `flipchanger_data.json` to Changer model
-- [ ] **Splash screen** – Brief FlipChanger logo on launch
-- [ ] **First-run wizard** – Create first Changer when none exist
+### ✅ Phase 11.7: Multi-Changer & Splash Screen (Feb 2025 – Complete)
+- [x] **Multi-Changer support** – Changers: Name, Location, Total Slots; each has own slots DB
+- [x] **Changer registry** – `flipchanger_changers.json`; per-Changer `flipchanger_<id>.json`
+- [x] **Changer select** – Top-level Changer list; header shows Changer name; main menu scrollable (5 visible)
+- [x] **Changer admin** – Add, Edit, Delete Changer; block delete if last; long-press OK to edit
+- [x] **Persistence** – Save/load `last_used_id` on exit/start
+- [x] **Migration** – One-time from single `flipchanger_data.json` to Changer model
+- [x] **Splash screen** – Brief FlipChanger logo on launch (~1.2s or key to skip)
+- [x] **First-run** – Create default Changer when none exist
 
-See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for full architecture.
+See [CHANGERS_DESIGN.md](CHANGERS_DESIGN.md) for architecture.
+
+**Bug fixes**: Main menu scroll (Help was cut off); MemMange/BusFault when backing/selecting Changer (deferred load/save, static buffer).
 
 ---
 

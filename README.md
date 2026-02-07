@@ -9,28 +9,24 @@ FlipChanger is an open-source application for the Flipper Zero that helps users 
 - **View & Browse**: Navigate your collection easily on the Flipper Zero display
 - **Add/Edit CDs**: Manage your collection directly from the device
 - **Data Persistence**: All data saved to SD card, survives reboots
+- **Multi-Changer**: Multiple CD changers (Name, Location, Slots); switch at top menu; per-Changer data
 - **IR Remote Integration** (planned): Control your CD changer using Flipper Zero's infrared capabilities
 
 ## Status
 
 ✅ **Active Development** - Core features implemented and working! App builds, runs, and persists data successfully on Flipper Zero.
 
-### Current Progress (February 2025)
+### Current Progress (February 2025) – v1.1.0
 
-- ✅ **Development Environment**: uFBT installed and configured
-- ✅ **App Structure**: Complete C/C++ application structure
-- ✅ **Core UI**: Main menu (5 options including Help), slot browser, slot details view
-- ✅ **Navigation**: Full menu system, wrap-around with scroll, long-press skip by 10
-- ✅ **Memory Optimization**: SD card-based caching system (supports 200 slots)
-- ✅ **Build System**: App builds and deploys successfully
-- ✅ **JSON Storage**: Save/load working; track data now persists correctly
-- ✅ **Add/Edit Interface**: Character-by-character input working with scrolling
-- ✅ **Track Management**: Add/delete/edit tracks (title and duration complete)
-- ✅ **Help System**: Instructions in Help menu; R key opens Help in list views
-- ✅ **Settings/Statistics**: Settings (slot count), Statistics (cached slots)
-- 📋 **Planned**: Multi-Changer (Name, Location, Slots per Changer; select at top menu; persist last-used)
-- 📋 **Planned**: Splash screen on launch
-- 📋 **Planned**: Enhanced fields, IR integration
+- ✅ **Multi-Changer**: Changers (Name, Location, Slots); select at top menu; header shows Changer name; Add/Edit/Delete
+- ✅ **Splash Screen**: Brief FlipChanger logo on launch
+- ✅ **Main Menu**: 6 options (View Slots, Add CD, Settings, Statistics, Changers, Help); scrollable (5 visible)
+- ✅ **Core UI**: Slot browser, slot details view; per-Changer slots database
+- ✅ **Navigation**: Wrap-around with scroll, long-press skip by 10; Changer switch persists
+- ✅ **Memory Optimization**: SD card-based caching; deferred load/save to avoid stack overflow
+- ✅ **Add/Edit Interface**: Character input; track management (title, duration)
+- ✅ **Settings/Statistics**: Slot count per Changer; statistics
+- 📋 **Planned**: Enhanced fields (Disc Number, Artist split), IR integration
 
 ## Documentation
 

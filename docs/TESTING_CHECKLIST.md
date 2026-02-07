@@ -1,16 +1,17 @@
 # FlipChanger Testing Checklist
 
-**Date**: February 7, 2025  
-**Version**: v1.0.3 (full-screen layout, wrap-around scroll fix)  
+**Date**: February 8, 2025  
+**Version**: v1.1.0 (Multi-Changer, Splash)  
 **Tester**: _______________
 
 ---
 
-## v1.0.3 Changes (Feb 2025)
-- **Full-screen layout** – 5 slots, 4 fields (slot details/add-edit), 5 tracks visible
-- **Wrap-around scroll fix** – Screen scrolls to show selection when wrapping Up/Down at list ends
-- **Help menu** – Instructions in Help (Main menu or R key)
-- **Long press Up/Down** – Skip by 10 slots
+## v1.1.0 Changes (Feb 2025)
+- **Multi-Changer** – Changers (Name, Location, Slots); select at top menu; Add/Edit/Delete
+- **Splash screen** – Brief FlipChanger logo on launch (~1.2s or key to skip)
+- **Main menu** – 6 items (View Slots, Add CD, Settings, Statistics, Changers, Help); scrollable (5 visible)
+- **Header** – Shows current Changer name instead of "FlipChanger"
+- **Per-Changer data** – Each Changer has own slots file; last-used persisted
 
 ---
 
@@ -29,9 +30,11 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 ## 1. App Launch & Basic Navigation
 
 ### 1.1 App Launch
-- [ ] App launches without crash
-- [ ] Main menu appears correctly
-- [ ] All 5 menu items visible (View Slots, Add CD, Statistics, Settings, Help)
+- [ ] Splash screen appears (FlipChanger, CD Changer Tracker)
+- [ ] Splash dismisses after ~1.2s or on key press
+- [ ] Main menu appears with Changer name in header
+- [ ] 6 menu items (View Slots, Add CD, Settings, Statistics, Changers, Help)
+- [ ] Main menu scrolls (5 visible at a time; Up/Down to scroll)
 - [ ] No UI overlap (footers removed; use Help for instructions)
 - [ ] No overlap between menu items
 
@@ -43,6 +46,18 @@ If you mark FAIL or PARTIAL, please describe the issue in the notes section.
 - [ ] OK button selects menu item
 - [ ] BACK button exits app
 - [ ] Long press BACK exits app
+
+**Notes**: _________________________________________________
+
+### 1.3 Changers (v1.1.0)
+- [ ] Changers menu item visible and selectable
+- [ ] Changer list shows Name | Location | slots
+- [ ] "+ Add Changer" row appears when < 10 changers
+- [ ] OK on Changer selects/switches (returns to main menu)
+- [ ] Long-press OK on Changer opens Edit form
+- [ ] OK on "+ Add Changer" opens Add form
+- [ ] BACK returns to main menu (no crash)
+- [ ] Header shows Changer name after switch
 
 **Notes**: _________________________________________________
 

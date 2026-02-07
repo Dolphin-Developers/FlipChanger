@@ -181,10 +181,10 @@ Based on Flipper Zero documentation, the submission process is:
 - ✅ Help menu, wrap-around scroll, long-press skip by 10
 - ✅ Custom app icon
 
-### v1.1.0 (Planned – Next)
+### v1.1.0 (Feb 2025) – Complete
 - Multi-Changer support (Name, Location, Slots per Changer)
-- Changer select at top menu; header shows Changer name
-- Changer admin (Add, Edit, Delete); persist last-used
+- Changer select at top menu; header shows Changer name; main menu scrollable
+- Changer admin (Add, Edit, Delete); persist last-used; migration from legacy
 - Splash screen on launch
 
 ---

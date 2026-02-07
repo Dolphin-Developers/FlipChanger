@@ -208,6 +208,13 @@ static const char* read_json_bool(const char* json, bool* value) {
     return NULL;
 }
 
+// Helper: Write JSON string (escape quotes) - forward decl, defined later
+static void write_json_string(File* file, const char* str);
+
+// Character set for text input (used by Add/Edit Changer and CD)
+static const char* CHAR_SET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .-,";
+#define CHAR_DEL_INDEX ((int32_t)39)  // strlen(CHAR_SET)
+
 // Helper: Find JSON key
 static const char* find_json_key(const char* json, const char* key) {
     char key_pattern[64];
@@ -223,26 +230,230 @@ static const char* find_json_key(const char* json, const char* key) {
     return NULL;
 }
 
-// Load data from JSON file
+// Migrate from legacy single-file to Changer model
+static bool flipchanger_migrate_from_legacy(FlipChangerApp* app) {
+    if(!app || !app->storage) return false;
+
+    File* f = storage_file_alloc(app->storage);
+    if(!storage_file_open(f, FLIPCHANGER_DATA_PATH, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        storage_file_free(f);
+        return false;
+    }
+
+    uint8_t buf[2048];
+    uint16_t n = storage_file_read(f, buf, sizeof(buf) - 1);
+    buf[n] = '\0';
+    storage_file_close(f);
+    storage_file_free(f);
+
+    int32_t total_slots = DEFAULT_SLOTS;
+    const char* p = find_json_key((const char*)buf, "total_slots");
+    if(p) {
+        read_json_int(p, &total_slots);
+        if(total_slots < MIN_SLOTS || total_slots > MAX_SLOTS) total_slots = DEFAULT_SLOTS;
+    }
+
+    storage_common_mkdir(app->storage, FLIPCHANGER_APP_DIR);
+    char new_path[64];
+    snprintf(new_path, sizeof(new_path), "%s/flipchanger_changer_0.json", FLIPCHANGER_APP_DIR);
+
+    File* out = storage_file_alloc(app->storage);
+    if(!storage_file_open(out, new_path, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+        storage_file_free(out);
+        return false;
+    }
+    storage_file_write(out, buf, n);
+    storage_file_close(out);
+    storage_file_free(out);
+
+    Changer* c = &app->changers[0];
+    strncpy(c->id, "changer_0", CHANGER_ID_LEN - 1);
+    c->id[CHANGER_ID_LEN - 1] = '\0';
+    strncpy(c->name, "Default", CHANGER_NAME_LEN - 1);
+    c->name[CHANGER_NAME_LEN - 1] = '\0';
+    c->location[0] = '\0';
+    c->total_slots = total_slots;
+    app->changer_count = 1;
+    app->current_changer_index = 0;
+    strncpy(app->current_changer_id, "changer_0", CHANGER_ID_LEN - 1);
+    app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+
+    flipchanger_save_changers(app);
+    return true;
+}
+
+// Build path to slots file for current Changer (e.g. flipchanger_changer_0.json)
+void flipchanger_get_slots_path(const FlipChangerApp* app, char* path_out, size_t path_size) {
+    if(!app || !path_out || path_size < 32) {
+        if(path_out && path_size > 0) path_out[0] = '\0';
+        return;
+    }
+    if(app->current_changer_id[0] != '\0') {
+        snprintf(path_out, path_size, "%s/flipchanger_%s.json", FLIPCHANGER_APP_DIR, app->current_changer_id);
+    } else {
+        snprintf(path_out, path_size, "%s", FLIPCHANGER_DATA_PATH);
+    }
+}
+
+// Load changers registry from flipchanger_changers.json
+bool flipchanger_load_changers(FlipChangerApp* app) {
+    if(!app || !app->storage) {
+        return false;
+    }
+
+    app->changer_count = 0;
+    app->current_changer_index = -1;
+    app->current_changer_id[0] = '\0';
+    memset(app->changers, 0, sizeof(app->changers));
+
+    File* file = storage_file_alloc(app->storage);
+    if(!storage_file_open(file, FLIPCHANGER_CHANGERS_PATH, FSAM_READ, FSOM_OPEN_EXISTING)) {
+        storage_file_free(file);
+        if(flipchanger_migrate_from_legacy(app)) {
+            return true;
+        }
+        return true;
+    }
+
+    uint8_t buf[512];
+    uint16_t n = storage_file_read(file, buf, sizeof(buf) - 1);
+    buf[n] = '\0';
+    storage_file_close(file);
+    storage_file_free(file);
+
+    const char* json = (const char*)buf;
+
+    const char* p = find_json_key(json, "last_used_id");
+    if(p) {
+        char last_id[CHANGER_ID_LEN];
+        if(read_json_string(p, last_id, sizeof(last_id))) {
+            strncpy(app->current_changer_id, last_id, CHANGER_ID_LEN - 1);
+            app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+        }
+    }
+
+    p = find_json_key(json, "changers");
+    if(!p) return true;
+    p = skip_whitespace(p);
+    if(*p != '[') return true;
+    p++;
+
+    int32_t i = 0;
+    while(*p && i < MAX_CHANGERS) {
+        p = skip_whitespace(p);
+        if(*p == ']') break;
+        if(*p != '{') {
+            p++;
+            continue;
+        }
+        p++;
+
+        Changer* c = &app->changers[i];
+        memset(c, 0, sizeof(Changer));
+        c->total_slots = DEFAULT_SLOTS;
+
+        const char* id_k = find_json_key(p, "id");
+        if(id_k) read_json_string(id_k, c->id, CHANGER_ID_LEN);
+        const char* name_k = find_json_key(p, "name");
+        if(name_k) read_json_string(name_k, c->name, CHANGER_NAME_LEN);
+        const char* loc_k = find_json_key(p, "location");
+        if(loc_k) read_json_string(loc_k, c->location, CHANGER_LOCATION_LEN);
+        const char* slots_k = find_json_key(p, "total_slots");
+        if(slots_k) {
+            int32_t ts = DEFAULT_SLOTS;
+            read_json_int(slots_k, &ts);
+            if(ts >= MIN_SLOTS && ts <= MAX_SLOTS) c->total_slots = ts;
+        }
+
+        if(c->id[0] != '\0') {
+            i++;
+            if(strcmp(c->id, app->current_changer_id) == 0) {
+                app->current_changer_index = i - 1;
+            }
+        }
+
+        while(*p && *p != '}' && *p != ']') p++;
+        if(*p == '}') p++;
+        if(*p == ',') p++;
+    }
+    app->changer_count = i;
+
+    if(app->changer_count > 0 && app->current_changer_index < 0) {
+        app->current_changer_index = 0;
+        strncpy(app->current_changer_id, app->changers[0].id, CHANGER_ID_LEN - 1);
+        app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+    }
+
+    return true;
+}
+
+// Save changers registry to flipchanger_changers.json
+bool flipchanger_save_changers(FlipChangerApp* app) {
+    if(!app || !app->storage) {
+        return false;
+    }
+
+    storage_common_mkdir(app->storage, FLIPCHANGER_APP_DIR);
+
+    File* file = storage_file_alloc(app->storage);
+    if(!storage_file_open(file, FLIPCHANGER_CHANGERS_PATH, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+        storage_file_free(file);
+        return false;
+    }
+
+    char hdr[96];
+    snprintf(hdr, sizeof(hdr), "{\"version\":1,\"last_used_id\":");
+    storage_file_write(file, (const uint8_t*)hdr, strlen(hdr));
+    write_json_string(file, app->current_changer_id);
+    storage_file_write(file, (const uint8_t*)",\"changers\":[", 13);
+
+    for(int32_t i = 0; i < app->changer_count; i++) {
+        if(i > 0) storage_file_write(file, (const uint8_t*)",", 1);
+
+        Changer* c = &app->changers[i];
+        storage_file_write(file, (const uint8_t*)"{", 1);
+        storage_file_write(file, (const uint8_t*)"\"id\":", 5);
+        write_json_string(file, c->id);
+        storage_file_write(file, (const uint8_t*)",\"name\":", 8);
+        write_json_string(file, c->name);
+        storage_file_write(file, (const uint8_t*)",\"location\":", 12);
+        write_json_string(file, c->location);
+        char slots[24];
+        snprintf(slots, sizeof(slots), ",\"total_slots\":%ld}", (long)c->total_slots);
+        storage_file_write(file, (const uint8_t*)slots, strlen(slots));
+    }
+    storage_file_write(file, (const uint8_t*)"]}", 2);
+
+    bool ok = storage_file_close(file);
+    storage_file_free(file);
+    return ok;
+}
+
+// Load data from JSON file (uses per-Changer path)
 bool flipchanger_load_data(FlipChangerApp* app) {
     if(!app || !app->storage) {
         return false;
     }
-    
-    // Initialize with default slots
-    flipchanger_init_slots(app, DEFAULT_SLOTS);
-    
-    // Try to open and read file if it exists
+
+    int32_t slots = DEFAULT_SLOTS;
+    if(app->current_changer_index >= 0 && app->current_changer_index < app->changer_count) {
+        slots = app->changers[app->current_changer_index].total_slots;
+    }
+    flipchanger_init_slots(app, slots);
+    app->total_slots = slots;
+
+    char path[64];
+    flipchanger_get_slots_path(app, path, sizeof(path));
+    if(path[0] == '\0') return true;
+
     File* file = storage_file_alloc(app->storage);
-    
-    if(!storage_file_open(file, FLIPCHANGER_DATA_PATH, FSAM_READ, FSOM_OPEN_EXISTING)) {
-        // File doesn't exist - use defaults
+    if(!storage_file_open(file, path, FSAM_READ, FSOM_OPEN_EXISTING)) {
         storage_file_free(file);
         return true;
     }
     
-    // Read file into buffer (must fit in stack - reduced to 2KB)
-    uint8_t buffer[2048];  // 2KB buffer - fits in stack, read incrementally if needed
+    // Use static buffer to avoid stack overflow in nested callbacks (was 2KB on stack -> BusFault)
+    static uint8_t buffer[2048];
     uint16_t bytes_read = storage_file_read(file, buffer, sizeof(buffer) - 1);
     if(bytes_read >= sizeof(buffer) - 1) {
         // File too large - truncate and warn (shouldn't happen with reasonable data)
@@ -265,13 +476,15 @@ bool flipchanger_load_data(FlipChangerApp* app) {
         // Version handling (for future compatibility)
     }
     
-    // Find total_slots
     p = find_json_key(json, "total_slots");
     if(p) {
         int32_t total_slots = DEFAULT_SLOTS;
         p = read_json_int(p, &total_slots);
         if(total_slots >= MIN_SLOTS && total_slots <= MAX_SLOTS) {
             app->total_slots = total_slots;
+            if(app->current_changer_index >= 0 && app->current_changer_index < app->changer_count) {
+                app->changers[app->current_changer_index].total_slots = total_slots;
+            }
         }
     }
     
@@ -344,7 +557,7 @@ bool flipchanger_load_data(FlipChangerApp* app) {
                 read_json_string(genre_key, slot->cd.genre, MAX_GENRE_LENGTH);
             }
             
-            // Parse tracks array (simplified - just count for now)
+            // Parse tracks array (full parse - title, duration)
             const char* tracks_key = find_json_key(p, "tracks");
             if(tracks_key) {
                 const char* tracks_start = skip_whitespace(tracks_key);
@@ -353,12 +566,27 @@ bool flipchanger_load_data(FlipChangerApp* app) {
                     int32_t track_count = 0;
                     const char* track_p = tracks_start;
                     
-                    // Count tracks
                     while(*track_p && track_count < MAX_TRACKS) {
                         track_p = skip_whitespace(track_p);
                         if(*track_p == ']') break;
                         if(*track_p == '{') {
-                            // Parse track (simplified)
+                            Track* track = &slot->cd.tracks[track_count];
+                            track->number = track_count + 1;
+                            track->title[0] = '\0';
+                            track->duration[0] = '\0';
+                            
+                            const char* title_key = find_json_key(track_p, "title");
+                            if(title_key) {
+                                read_json_string(title_key, track->title, MAX_TRACK_TITLE_LENGTH);
+                            }
+                            const char* dur_key = find_json_key(track_p, "duration");
+                            if(dur_key) {
+                                read_json_string(dur_key, track->duration, sizeof(track->duration) - 1);
+                            }
+                            const char* num_key = find_json_key(track_p, "num");
+                            if(num_key) {
+                                read_json_int(num_key, &track->number);
+                            }
                             track_count++;
                             while(*track_p && *track_p != '}') track_p++;
                             if(*track_p == '}') track_p++;
@@ -424,10 +652,15 @@ bool flipchanger_save_data(FlipChangerApp* app) {
         return false;
     }
     
-    // Create directory if needed
-    storage_common_mkdir(app->storage, "/ext/apps/Tools");
-    
-    if(!storage_file_open(file, FLIPCHANGER_DATA_PATH, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+    storage_common_mkdir(app->storage, FLIPCHANGER_APP_DIR);
+
+    char path[64];
+    flipchanger_get_slots_path(app, path, sizeof(path));
+    if(path[0] == '\0') {
+        storage_file_free(file);
+        return false;
+    }
+    if(!storage_file_open(file, path, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
         storage_file_free(file);
         return false;
     }
@@ -535,29 +768,42 @@ bool flipchanger_save_data(FlipChangerApp* app) {
 void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app);
 void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app);
 void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app);
+void flipchanger_draw_changers(Canvas* canvas, FlipChangerApp* app);
+void flipchanger_draw_add_edit_changer(Canvas* canvas, FlipChangerApp* app);
+void flipchanger_draw_confirm_delete_changer(Canvas* canvas, FlipChangerApp* app);
 
-// Draw main menu
+// Draw main menu (scrollable - 5 visible at a time)
 void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
-    
-    // Title
-    canvas_draw_str(canvas, 30, 10, "FlipChanger");
-    
-    // Menu options
+
+    const char* title = "FlipChanger";
+    if(app->changer_count > 0 && app->current_changer_index >= 0 && app->current_changer_index < app->changer_count
+       && app->changers[app->current_changer_index].name[0] != '\0') {
+        title = app->changers[app->current_changer_index].name;
+    }
+    canvas_draw_str(canvas, 5, 8, title);
+
     canvas_set_font(canvas, FontSecondary);
-    
-    int32_t y = 22;  // Adjusted starting position
     const char* menu_items[] = {
         "View Slots",
         "Add CD",
+        "Settings",
         "Statistics",
-        "Settings"
+        "Changers",
+        "Help"
     };
-    
-    int32_t selected = app->selected_index % 4;
-    
-    for(int32_t i = 0; i < 4; i++) {
+    const int32_t main_menu_count = 6;
+    const int32_t visible_count = 5;
+    int32_t selected = ((app->selected_index % main_menu_count) + main_menu_count) % main_menu_count;
+
+    int32_t start = app->scroll_offset;
+    if(start < 0) start = 0;
+    if(start + visible_count > main_menu_count) start = main_menu_count - visible_count;
+    if(start < 0) start = 0;
+
+    int32_t y = 16;
+    for(int32_t i = start; i < start + visible_count && i < main_menu_count; i++) {
         if(i == selected) {
             canvas_draw_box(canvas, 5, y - 8, 118, 10);
             canvas_invert_color(canvas);
@@ -566,13 +812,126 @@ void flipchanger_draw_main_menu(Canvas* canvas, FlipChangerApp* app) {
         if(i == selected) {
             canvas_invert_color(canvas);
         }
-        y += 10;  // Reduced spacing from 12 to 10 to prevent overlap
+        y += 10;
     }
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 57, "U/D:Select K:Go B:Exit");
-    canvas_draw_str(canvas, 5, 63, "LB:Exit");
+}
+
+#define CHANGER_FIELD_NAME    0
+#define CHANGER_FIELD_LOCATION 1
+#define CHANGER_FIELD_SLOTS   2
+#define CHANGER_FIELD_SAVE    3
+#define CHANGER_FIELD_DELETE  4  // Only when editing
+
+// Draw Changer select list
+void flipchanger_draw_changers(Canvas* canvas, FlipChangerApp* app) {
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontPrimary);
+    canvas_draw_str(canvas, 5, 8, "Select Changer");
+
+    bool show_add = (app->changer_count < MAX_CHANGERS);
+    int32_t total_rows = app->changer_count + (show_add ? 1 : 0);
+    if(total_rows == 0) {
+        canvas_set_font(canvas, FontSecondary);
+        canvas_draw_str(canvas, 5, 28, "+ Add Changer (tap)");
+        return;
+    }
+
+    canvas_set_font(canvas, FontSecondary);
+    int32_t visible = 5;
+    int32_t start = app->scroll_offset;
+    if(start < 0) start = 0;
+    if(start + visible > total_rows) start = total_rows - visible;
+    if(start < 0) start = 0;
+
+    int32_t y = 16;
+    for(int32_t i = start; i < start + visible && i < total_rows; i++) {
+        bool is_add_row = (show_add && i == app->changer_count);
+        bool is_selected = (i == app->selected_index);
+
+        if(is_add_row) {
+            if(is_selected) {
+                canvas_draw_box(canvas, 2, y - 8, 124, 9);
+                canvas_invert_color(canvas);
+            }
+            canvas_draw_str(canvas, 5, y, "+ Add Changer");
+            if(is_selected) canvas_invert_color(canvas);
+        } else if(i < app->changer_count) {
+            Changer* c = &app->changers[i];
+            char line[48];
+            if(c->location[0] != '\0') {
+                snprintf(line, sizeof(line), "%.10s|%.6s|%ld", c->name, c->location, (long)c->total_slots);
+            } else {
+                snprintf(line, sizeof(line), "%.18s |%ld", c->name, (long)c->total_slots);
+            }
+            if(is_selected) {
+                canvas_draw_box(canvas, 2, y - 8, 124, 9);
+                canvas_invert_color(canvas);
+            }
+            canvas_draw_str(canvas, 5, y, line);
+            if(is_selected) canvas_invert_color(canvas);
+        }
+        y += 10;
+    }
+}
+
+// Draw Add/Edit Changer form
+void flipchanger_draw_add_edit_changer(Canvas* canvas, FlipChangerApp* app) {
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontPrimary);
+    canvas_draw_str(canvas, 5, 8, app->edit_changer_index >= 0 ? "Edit Changer" : "Add Changer");
+
+    canvas_set_font(canvas, FontSecondary);
+    bool has_delete = (app->edit_changer_index >= 0 && app->changer_count > 1);
+    const char* labels[] = {"Name:", "Location:", "Slots:", has_delete ? "Delete" : "Save", "Save"};
+    int32_t field_count = has_delete ? 5 : 4;
+    if(has_delete) labels[4] = "Save";
+
+    int32_t y = 16;
+    for(int32_t i = 0; i < field_count; i++) {
+        bool sel = (app->edit_changer_field == i);
+        if(sel) {
+            canvas_draw_box(canvas, 2, y - 8, 124, 9);
+            canvas_invert_color(canvas);
+        }
+        canvas_draw_str(canvas, 5, y, labels[i]);
+        if(i == CHANGER_FIELD_NAME) {
+            canvas_draw_str(canvas, 45, y, app->edit_changer.name[0] ? app->edit_changer.name : "-");
+            if(sel) {
+                char cd[8];
+                int32_t cs = app->edit_char_selection;
+                if(cs >= CHAR_DEL_INDEX) snprintf(cd, sizeof(cd), "[DEL]");
+                else snprintf(cd, sizeof(cd), "[%c]", CHAR_SET[cs % (strlen(CHAR_SET) + 1)]);
+                canvas_draw_str(canvas, 95, y, cd);
+            }
+        } else if(i == CHANGER_FIELD_LOCATION) {
+            canvas_draw_str(canvas, 55, y, app->edit_changer.location[0] ? app->edit_changer.location : "-");
+            if(sel) {
+                char cd[8];
+                int32_t cs = app->edit_char_selection;
+                if(cs >= CHAR_DEL_INDEX) snprintf(cd, sizeof(cd), "[DEL]");
+                else snprintf(cd, sizeof(cd), "[%c]", CHAR_SET[cs % (strlen(CHAR_SET) + 1)]);
+                canvas_draw_str(canvas, 95, y, cd);
+            }
+        } else if(i == CHANGER_FIELD_SLOTS) {
+            char s[16];
+            snprintf(s, sizeof(s), "%ld", (long)app->edit_changer.total_slots);
+            canvas_draw_str(canvas, 45, y, s);
+        }
+        if(sel) canvas_invert_color(canvas);
+        y += 10;
+    }
+}
+
+// Draw confirm delete Changer
+void flipchanger_draw_confirm_delete_changer(Canvas* canvas, FlipChangerApp* app) {
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontPrimary);
+    canvas_draw_str(canvas, 5, 8, "Delete Changer?");
+    canvas_set_font(canvas, FontSecondary);
+    if(app->edit_changer_index >= 0 && app->edit_changer_index < app->changer_count && app->changer_count > 1) {
+        canvas_draw_str(canvas, 5, 24, app->changers[app->edit_changer_index].name);
+    }
+    canvas_draw_str(canvas, 5, 40, "OK=Yes  Back=No");
 }
 
 // Draw slot list
@@ -580,13 +939,13 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
     
-    // Header
+    // Header - compact
     char header[32];
     snprintf(header, sizeof(header), "Slots (%ld total)", app->total_slots);
-    canvas_draw_str(canvas, 5, 10, header);
+    canvas_draw_str(canvas, 5, 8, header);
     
-    // Calculate visible slots (4 per screen to leave room for footer)
-    int32_t visible_count = 4;
+    // Full screen: 5 slots visible (was 4 when footer reserved space)
+    int32_t visible_count = 5;
     int32_t start_index = app->scroll_offset;
     int32_t end_index = start_index + visible_count;
     if(end_index > app->total_slots) {
@@ -594,19 +953,15 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
     }
     
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 18;  // Start slightly higher
+    int32_t y = 16;
     
-    // Don't update cache during draw - only read from cache
-    // Cache should be updated before entering this view
-    
-    // Ensure we only show exactly 4 items (or fewer if total_slots < 4)
     int32_t items_to_show = (end_index - start_index);
-    if(items_to_show > 4) {
-        items_to_show = 4;
-        end_index = start_index + 4;
+    if(items_to_show > 5) {
+        items_to_show = 5;
+        end_index = start_index + 5;
     }
     
-    for(int32_t i = start_index; i < end_index && (i - start_index) < 4; i++) {
+    for(int32_t i = start_index; i < end_index && (i - start_index) < 5; i++) {
         char line[80];  // Increased buffer size
         Slot* slot = flipchanger_get_slot(app, i);
         
@@ -630,13 +985,8 @@ void flipchanger_draw_slot_list(Canvas* canvas, FlipChangerApp* app) {
             canvas_invert_color(canvas);
         }
         
-        y += 11;  // Slightly more spacing to ensure clear separation
+        y += 10;  // 5 items × 10px = 50px, fits in 16-60
     }
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 57, "U/D:Nav K:View B:Return");
-    canvas_draw_str(canvas, 5, 63, "LB:Exit");
 }
 
 // Draw slot details
@@ -660,20 +1010,18 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
     
     canvas_set_font(canvas, FontPrimary);
     
-    // Slot number
+    // Slot number - compact header
     char slot_str[16];
     snprintf(slot_str, sizeof(slot_str), "Slot %ld", (long)slot->slot_number);
-    canvas_draw_str(canvas, 5, 10, slot_str);
+    canvas_draw_str(canvas, 5, 8, slot_str);
     
     if(!slot->occupied) {
         canvas_set_font(canvas, FontSecondary);
-        canvas_draw_str(canvas, 5, 30, "[Empty Slot]");
-        canvas_set_font(canvas, FontKeyboard);
-        canvas_draw_str(canvas, 5, 50, "OK:Add CD BACK:Return");
+        canvas_draw_str(canvas, 5, 28, "[Empty Slot]");
         return;
     }
     
-    // CD information - scrollable list (show 3 items at a time)
+    // CD information - 4 items visible (full screen)
     canvas_set_font(canvas, FontSecondary);
     
     // Build list of fields to display
@@ -729,25 +1077,34 @@ void flipchanger_draw_slot_details(Canvas* canvas, FlipChangerApp* app) {
         field_count++;
     }
     
-    // Show 3 items at a time with scrolling
-    const int32_t VISIBLE_ITEMS = 3;
+    // Show 4 items at a time (full screen)
+    const int32_t VISIBLE_ITEMS = 4;
     int32_t start_index = app->details_scroll_offset;
     int32_t end_index = start_index + VISIBLE_ITEMS;
     if(end_index > field_count) {
         end_index = field_count;
     }
     
-    int32_t y = 22;
+    int32_t y = 18;
     for(int32_t i = start_index; i < end_index; i++) {
         canvas_draw_str(canvas, 5, y, fields[i].label);
         canvas_draw_str(canvas, 35, y, fields[i].value);
         y += 10;
     }
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 57, "U/D:Scroll K:Edit B:Return");
-    canvas_draw_str(canvas, 5, 63, "LB:Exit");
+}
+
+// Draw Help view (full screen)
+void flipchanger_draw_help(Canvas* canvas, FlipChangerApp* app) {
+    UNUSED(app);
+    canvas_clear(canvas);
+    canvas_set_font(canvas, FontPrimary);
+    canvas_draw_str(canvas, 42, 8, "Help");
+    canvas_set_font(canvas, FontSecondary);
+    canvas_draw_str(canvas, 5, 18, "U/D:Select  K:OK  B:Back");
+    canvas_draw_str(canvas, 5, 27, "LB:Long Back  R:Help");
+    canvas_draw_str(canvas, 5, 36, "Slots: wrap U/D");
+    canvas_draw_str(canvas, 5, 45, "LPU/LPD: skip 10");
+    canvas_draw_str(canvas, 5, 54, "B or K: close");
 }
 
 // Draw callback
@@ -782,6 +1139,25 @@ void flipchanger_draw_callback(Canvas* canvas, void* ctx) {
         case VIEW_STATISTICS:
             flipchanger_draw_statistics(canvas, app);
             break;
+        case VIEW_CHANGERS:
+            flipchanger_draw_changers(canvas, app);
+            break;
+        case VIEW_ADD_EDIT_CHANGER:
+            flipchanger_draw_add_edit_changer(canvas, app);
+            break;
+        case VIEW_CONFIRM_DELETE_CHANGER:
+            flipchanger_draw_confirm_delete_changer(canvas, app);
+            break;
+        case VIEW_SPLASH:
+            canvas_clear(canvas);
+            canvas_set_font(canvas, FontPrimary);
+            canvas_draw_str_aligned(canvas, 64, 26, AlignCenter, AlignCenter, "FlipChanger");
+            canvas_set_font(canvas, FontSecondary);
+            canvas_draw_str_aligned(canvas, 64, 40, AlignCenter, AlignCenter, "CD Changer Tracker");
+            break;
+        case VIEW_HELP:
+            flipchanger_draw_help(canvas, app);
+            break;
         default:
             canvas_clear(canvas);
             canvas_set_font(canvas, FontPrimary);
@@ -794,6 +1170,45 @@ void flipchanger_draw_callback(Canvas* canvas, void* ctx) {
 void flipchanger_show_main_menu(FlipChangerApp* app) {
     app->current_view = VIEW_MAIN_MENU;
     app->selected_index = 0;
+    app->scroll_offset = 0;
+    if(app->current_changer_index < 0 || app->current_changer_index >= app->changer_count) {
+        app->current_changer_index = (app->changer_count > 0) ? 0 : -1;
+        if(app->changer_count > 0) {
+            strncpy(app->current_changer_id, app->changers[0].id, CHANGER_ID_LEN - 1);
+            app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+        } else {
+            app->current_changer_id[0] = '\0';
+        }
+    }
+}
+
+void flipchanger_show_changers(FlipChangerApp* app) {
+    app->current_view = VIEW_CHANGERS;
+    app->scroll_offset = 0;
+    if(app->changer_count > 0) {
+        if(app->current_changer_index >= 0 && app->current_changer_index < app->changer_count) {
+            app->selected_index = app->current_changer_index;
+        } else {
+            app->selected_index = 0;
+        }
+    } else {
+        app->selected_index = 0;
+    }
+}
+
+void flipchanger_show_add_edit_changer(FlipChangerApp* app, int32_t index) {
+    app->current_view = VIEW_ADD_EDIT_CHANGER;
+    app->edit_changer_index = index;
+    app->edit_changer_field = CHANGER_FIELD_NAME;
+    app->edit_char_pos = 0;
+    app->edit_char_selection = 0;
+
+    if(index >= 0 && index < app->changer_count) {
+        memcpy(&app->edit_changer, &app->changers[index], sizeof(Changer));
+    } else {
+        memset(&app->edit_changer, 0, sizeof(Changer));
+        app->edit_changer.total_slots = DEFAULT_SLOTS;
+    }
 }
 
 void flipchanger_show_slot_list(FlipChangerApp* app) {
@@ -807,11 +1222,6 @@ void flipchanger_show_slot_details(FlipChangerApp* app, int32_t slot_index) {
     app->current_slot_index = slot_index;
     app->details_scroll_offset = 0;
 }
-
-// Character set for text input
-// Special: Last character index will be used for DEL (delete)
-static const char* CHAR_SET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .-,";
-#define CHAR_DEL_INDEX ((int32_t)strlen(CHAR_SET))  // DEL is one past the end of the set
 
 void flipchanger_show_add_edit(FlipChangerApp* app, int32_t slot_index, bool is_new) {
     app->current_view = VIEW_ADD_EDIT_CD;
@@ -882,10 +1292,10 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
     // Title
     char title[32];
     snprintf(title, sizeof(title), "Slot %ld", (long)slot->slot_number);
-    canvas_draw_str(canvas, 5, 10, title);
+    canvas_draw_str(canvas, 5, 8, title);
     
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 18;  // Start higher to leave room for footer
+    int32_t y = 16;
     
     // Field labels and values
     const char* field_labels[] = {
@@ -906,8 +1316,8 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
         NULL   // Tracks handled separately
     };
     
-    // Draw fields (show 3 at a time with scrolling for Add/Edit view)
-    const int32_t VISIBLE_FIELDS = 3;
+    // Draw fields (4 visible - full screen)
+    const int32_t VISIBLE_FIELDS = 4;
     int32_t field_scroll_offset = 0;
     if((int32_t)app->edit_field >= VISIBLE_FIELDS) {
         field_scroll_offset = (int32_t)app->edit_field - VISIBLE_FIELDS + 1;
@@ -1099,33 +1509,6 @@ void flipchanger_draw_add_edit(Canvas* canvas, FlipChangerApp* app) {
             canvas_invert_color(canvas);
         }
     }
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    if(app->edit_field == FIELD_TRACKS) {
-        canvas_draw_str(canvas, 5, 57, "K:Tracks B:Return");
-        canvas_draw_str(canvas, 5, 63, "LB:Exit");
-    } else if(app->edit_field == FIELD_ARTIST || app->edit_field == FIELD_ALBUM || 
-                app->edit_field == FIELD_GENRE || app->edit_field == FIELD_NOTES) {
-        // Field editing mode - show different hint based on state
-        if(app->edit_char_pos == 0 && app->edit_char_selection == 0) {
-            // Navigation mode - split across two lines
-            canvas_draw_str(canvas, 5, 57, "U/D:Field K:Edit");
-            canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
-        } else {
-            // Editing mode - split across two lines
-            canvas_draw_str(canvas, 5, 57, "U/D:Char K:Add");
-            canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
-        }
-    } else if(app->edit_field == FIELD_YEAR) {
-        // Year field - numeric only - split across two lines
-        canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add");
-        canvas_draw_str(canvas, 5, 63, "B:Del LB:Exit");
-    } else {
-        // Default footer - split across two lines
-        canvas_draw_str(canvas, 5, 57, "U/D:Field K:Add");
-        canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
-    }
 }
 
 // Draw Track Management view
@@ -1161,18 +1544,19 @@ void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
     // Title
     char title[48];
     snprintf(title, sizeof(title), "Tracks (%ld)", (long)slot->cd.track_count);
-    canvas_draw_str(canvas, 5, 10, title);
+    canvas_draw_str(canvas, 5, 8, title);
     
     canvas_set_font(canvas, FontSecondary);
     
-    // Show tracks (up to 4 visible)
-    int32_t y = 22;
+    // Show tracks: 5 when not editing, 4 when editing (to leave room for edit UI)
+    int32_t max_visible = app->editing_track ? 4 : 5;
+    int32_t y = 18;
     int32_t start_track = 0;
-    if(slot->cd.track_count > 0 && app->edit_selected_track >= 4) {
-        start_track = app->edit_selected_track - 3;
+    if(slot->cd.track_count > 0 && app->edit_selected_track >= max_visible) {
+        start_track = app->edit_selected_track - max_visible + 1;
     }
     
-    for(int32_t i = start_track; i < slot->cd.track_count && i < start_track + 4 && i >= 0 && i < MAX_TRACKS; i++) {
+    for(int32_t i = start_track; i < slot->cd.track_count && i < start_track + max_visible && i >= 0 && i < MAX_TRACKS; i++) {
         bool is_selected = (i == app->edit_selected_track);
         
         if(is_selected) {
@@ -1200,12 +1584,12 @@ void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
         y += 10;
     }
     
-    // Show editing interface if editing a track
+    // Show editing interface if editing a track (use bottom area)
     if(app->editing_track && app->edit_selected_track >= 0 && app->edit_selected_track < slot->cd.track_count) {
         Track* track = &slot->cd.tracks[app->edit_selected_track];
         if(track) {
             canvas_set_font(canvas, FontSecondary);
-            int32_t edit_y = 50;
+            int32_t edit_y = 56;  // Bottom area for edit UI (when 4 tracks shown)
             
             // Show which field is being edited
             if(app->edit_track_field == TRACK_FIELD_TITLE) {
@@ -1272,21 +1656,6 @@ void flipchanger_draw_track_management(Canvas* canvas, FlipChangerApp* app) {
             }
         }
     }
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    if(app->editing_track) {
-        if(app->edit_track_field == TRACK_FIELD_DURATION) {
-            canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add B:Switch");
-            canvas_draw_str(canvas, 5, 63, "LB:Exit");
-        } else {
-            canvas_draw_str(canvas, 5, 57, "U/D:Char K:Add B:Switch");
-            canvas_draw_str(canvas, 5, 63, "LB:Exit");
-        }
-    } else {
-        canvas_draw_str(canvas, 5, 57, "K:Edit +:Add -:Del B:Return");
-        canvas_draw_str(canvas, 5, 63, "LB:Exit");
-    }
 }
 
 // Input callback
@@ -1305,58 +1674,280 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
     if(!is_short_press && !is_long_press) {
         return;
     }
+
+    if(app->current_view == VIEW_SPLASH) {
+        flipchanger_show_main_menu(app);
+        return;
+    }
     
     switch(app->current_view) {
-        case VIEW_MAIN_MENU:
+        case VIEW_MAIN_MENU: {
+            const int32_t main_menu_count = 6;
+            const int32_t visible_count = 5;
             if(input_event->key == InputKeyUp) {
-                app->selected_index = (app->selected_index + 3) % 4;  // Wrap around
+                app->selected_index = (app->selected_index + main_menu_count - 1) % main_menu_count;
+                if(app->selected_index < app->scroll_offset) app->scroll_offset = app->selected_index;
             } else if(input_event->key == InputKeyDown) {
-                app->selected_index = (app->selected_index + 1) % 4;
+                app->selected_index = (app->selected_index + 1) % main_menu_count;
+                if(app->selected_index >= app->scroll_offset + visible_count)
+                    app->scroll_offset = app->selected_index - visible_count + 1;
             } else if(input_event->key == InputKeyOk) {
-                switch(app->selected_index) {
-                    case 0:  // View Slots
+                int32_t sel = ((app->selected_index % main_menu_count) + main_menu_count) % main_menu_count;
+                switch(sel) {
+                    case 0:
                         flipchanger_show_slot_list(app);
                         break;
-                    case 1:  // Add CD
-                        flipchanger_show_slot_list(app);  // Show slots first to select
+                    case 1:
+                        flipchanger_show_slot_list(app);
                         break;
-                    case 2:  // Statistics
-                        app->current_view = VIEW_STATISTICS;
-                        app->selected_index = 0;
-                        break;
-                    case 3:  // Settings
+                    case 2:
                         app->current_view = VIEW_SETTINGS;
                         app->selected_index = 0;
                         app->editing_slot_count = false;
                         app->edit_slot_count_pos = 0;
                         break;
+                    case 3:
+                        app->current_view = VIEW_STATISTICS;
+                        app->selected_index = 0;
+                        break;
+                    case 4:
+                        flipchanger_show_changers(app);
+                        break;
+                    case 5:
+                        app->help_return_view = VIEW_MAIN_MENU;
+                        app->current_view = VIEW_HELP;
+                        break;
                 }
             } else if(input_event->key == InputKeyBack) {
                 app->running = false;
-                // Don't update view port after setting running to false
                 return;
+            }
+            break;
+        }
+        case VIEW_CHANGERS: {
+            bool show_add = (app->changer_count < MAX_CHANGERS);
+            int32_t total_rows = app->changer_count + (show_add ? 1 : 0);
+            bool is_add_row = (show_add && app->selected_index == app->changer_count);
+
+            if(input_event->key == InputKeyRight) {
+                app->help_return_view = VIEW_CHANGERS;
+                app->current_view = VIEW_HELP;
+            } else if(input_event->key == InputKeyUp && total_rows > 0) {
+                app->selected_index--;
+                if(app->selected_index < 0) app->selected_index = total_rows - 1;
+                if(app->selected_index >= app->scroll_offset + 5) app->scroll_offset = app->selected_index - 4;
+                else if(app->selected_index < app->scroll_offset) app->scroll_offset = app->selected_index;
+            } else if(input_event->key == InputKeyDown && total_rows > 0) {
+                app->selected_index++;
+                if(app->selected_index >= total_rows) app->selected_index = 0;
+                if(app->selected_index >= app->scroll_offset + 5) app->scroll_offset = app->selected_index - 4;
+                else if(app->selected_index < app->scroll_offset) app->scroll_offset = app->selected_index;
+            } else if(input_event->key == InputKeyOk) {
+                if(is_add_row) {
+                    flipchanger_show_add_edit_changer(app, -1);
+                } else if(is_long_press && app->selected_index < app->changer_count) {
+                    flipchanger_show_add_edit_changer(app, app->selected_index);
+                } else if(app->selected_index >= 0 && app->selected_index < app->changer_count) {
+                    app->current_changer_index = app->selected_index;
+                    strncpy(app->current_changer_id, app->changers[app->selected_index].id, CHANGER_ID_LEN - 1);
+                    app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+                    app->total_slots = app->changers[app->selected_index].total_slots;
+                    app->pending_changer_switch = true;
+                    app->scroll_offset = 0;
+                    flipchanger_show_main_menu(app);
+                }
+            } else if(input_event->key == InputKeyBack) {
+                app->scroll_offset = 0;
+                flipchanger_show_main_menu(app);
+            }
+            break;
+        }
+        case VIEW_ADD_EDIT_CHANGER: {
+            bool has_delete = (app->edit_changer_index >= 0 && app->changer_count > 1);
+            int32_t max_field = has_delete ? (int32_t)CHANGER_FIELD_DELETE : (int32_t)CHANGER_FIELD_SAVE;
+            int32_t char_set_len = strlen(CHAR_SET);
+            int32_t max_sel = char_set_len;
+
+            if(input_event->key == InputKeyBack) {
+                flipchanger_show_changers(app);
+            } else if(app->edit_changer_field == CHANGER_FIELD_SAVE) {
+                if(input_event->key == InputKeyOk && app->edit_changer.name[0] != '\0') {
+                    if(app->edit_changer_index >= 0) {
+                        memcpy(&app->changers[app->edit_changer_index], &app->edit_changer, sizeof(Changer));
+                        if(app->current_changer_index == app->edit_changer_index) {
+                            app->total_slots = app->edit_changer.total_slots;
+                        }
+                    } else {
+                        char id[CHANGER_ID_LEN];
+                        snprintf(id, sizeof(id), "changer_%ld", (long)app->changer_count);
+                        strncpy(app->edit_changer.id, id, CHANGER_ID_LEN - 1);
+                        app->edit_changer.id[CHANGER_ID_LEN - 1] = '\0';
+                        if(app->edit_changer.total_slots < MIN_SLOTS) app->edit_changer.total_slots = MIN_SLOTS;
+                        if(app->edit_changer.total_slots > MAX_SLOTS) app->edit_changer.total_slots = MAX_SLOTS;
+                        memcpy(&app->changers[app->changer_count], &app->edit_changer, sizeof(Changer));
+                        app->changer_count++;
+                        char new_path[64];
+                        snprintf(new_path, sizeof(new_path), "%s/flipchanger_%s.json", FLIPCHANGER_APP_DIR, app->edit_changer.id);
+                        File* nf = storage_file_alloc(app->storage);
+                        if(storage_file_open(nf, new_path, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+                            char init[80];
+                            snprintf(init, sizeof(init), "{\"version\":1,\"total_slots\":%ld,\"slots\":[]}", (long)app->edit_changer.total_slots);
+                            storage_file_write(nf, (const uint8_t*)init, strlen(init));
+                            storage_file_close(nf);
+                        }
+                        storage_file_free(nf);
+                    }
+                    flipchanger_save_changers(app);
+                    flipchanger_show_changers(app);
+                } else if(input_event->key == InputKeyUp) {
+                    app->edit_changer_field = (has_delete ? CHANGER_FIELD_DELETE : CHANGER_FIELD_SLOTS);
+                } else if(input_event->key == InputKeyDown) {
+                    app->edit_changer_field = CHANGER_FIELD_NAME;
+                }
+            } else if(app->edit_changer_field == CHANGER_FIELD_DELETE) {
+                if(input_event->key == InputKeyOk) {
+                    app->current_view = VIEW_CONFIRM_DELETE_CHANGER;
+                } else if(input_event->key == InputKeyUp) {
+                    app->edit_changer_field = CHANGER_FIELD_SLOTS;
+                } else if(input_event->key == InputKeyDown) {
+                    app->edit_changer_field = CHANGER_FIELD_SAVE;
+                }
+            } else if(app->edit_changer_field == CHANGER_FIELD_SLOTS) {
+                if(input_event->key == InputKeyUp) {
+                    app->edit_changer.total_slots++;
+                    if(app->edit_changer.total_slots > MAX_SLOTS) app->edit_changer.total_slots = MAX_SLOTS;
+                } else if(input_event->key == InputKeyDown) {
+                    app->edit_changer.total_slots--;
+                    if(app->edit_changer.total_slots < MIN_SLOTS) app->edit_changer.total_slots = MIN_SLOTS;
+                } else if(input_event->key == InputKeyOk) {
+                    app->edit_changer_field = (has_delete ? CHANGER_FIELD_DELETE : CHANGER_FIELD_SAVE);
+                }
+            } else if(app->edit_changer_field == CHANGER_FIELD_NAME || app->edit_changer_field == CHANGER_FIELD_LOCATION) {
+                char* field = (app->edit_changer_field == CHANGER_FIELD_NAME) ? app->edit_changer.name : app->edit_changer.location;
+                int32_t max_len = (app->edit_changer_field == CHANGER_FIELD_NAME) ? CHANGER_NAME_LEN - 1 : CHANGER_LOCATION_LEN - 1;
+
+                if(input_event->key == InputKeyUp) {
+                    app->edit_char_selection--;
+                    if(app->edit_char_selection < 0) app->edit_char_selection = max_sel;
+                } else if(input_event->key == InputKeyDown) {
+                    app->edit_char_selection++;
+                    if(app->edit_char_selection > max_sel) app->edit_char_selection = 0;
+                } else if(input_event->key == InputKeyLeft) {
+                    if(app->edit_char_pos > 0) {
+                        app->edit_char_pos--;
+                    } else if(app->edit_changer_field == CHANGER_FIELD_LOCATION) {
+                        app->edit_changer_field = CHANGER_FIELD_NAME;
+                        app->edit_char_pos = strlen(app->edit_changer.name);
+                        app->edit_char_selection = 0;
+                    } else {
+                        app->edit_changer_field = max_field;
+                    }
+                } else if(input_event->key == InputKeyRight) {
+                    int32_t flen = strlen(field);
+                    if(app->edit_char_pos < flen && app->edit_char_pos < max_len - 1) {
+                        app->edit_char_pos++;
+                    } else if(app->edit_char_pos == flen) {
+                        if(app->edit_changer_field == CHANGER_FIELD_NAME) {
+                            app->edit_changer_field = CHANGER_FIELD_LOCATION;
+                            app->edit_char_pos = 0;
+                            app->edit_char_selection = 0;
+                        } else {
+                            app->edit_changer_field = CHANGER_FIELD_SLOTS;
+                        }
+                    }
+                } else if(input_event->key == InputKeyOk) {
+                    if(app->edit_char_selection >= CHAR_DEL_INDEX) {
+                        int32_t len = strlen(field);
+                        if(app->edit_char_pos < len) {
+                            memmove(field + app->edit_char_pos, field + app->edit_char_pos + 1, len - app->edit_char_pos);
+                        } else if(app->edit_char_pos > 0) {
+                            app->edit_char_pos--;
+                            memmove(field + app->edit_char_pos, field + app->edit_char_pos + 1, strlen(field) - app->edit_char_pos);
+                        }
+                    } else if(app->edit_char_selection < char_set_len && app->edit_char_pos < max_len - 1) {
+                        int32_t len = strlen(field);
+                        if(len < max_len) {
+                            memmove(field + app->edit_char_pos + 1, field + app->edit_char_pos, len - app->edit_char_pos + 1);
+                            field[app->edit_char_pos] = CHAR_SET[app->edit_char_selection];
+                            if(app->edit_char_pos <= len) app->edit_char_pos++;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case VIEW_CONFIRM_DELETE_CHANGER:
+            if(input_event->key == InputKeyOk && app->edit_changer_index >= 0 && app->changer_count > 1) {
+                for(int32_t i = app->edit_changer_index; i < app->changer_count - 1; i++) {
+                    memcpy(&app->changers[i], &app->changers[i + 1], sizeof(Changer));
+                }
+                app->changer_count--;
+                if(app->current_changer_index >= app->changer_count) app->current_changer_index = app->changer_count - 1;
+                if(app->current_changer_index >= 0) {
+                    strncpy(app->current_changer_id, app->changers[app->current_changer_index].id, CHANGER_ID_LEN - 1);
+                    app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+                    app->total_slots = app->changers[app->current_changer_index].total_slots;
+                }
+                flipchanger_save_changers(app);
+                flipchanger_load_data(app);
+                flipchanger_show_changers(app);
+            } else if(input_event->key == InputKeyBack) {
+                app->current_view = VIEW_ADD_EDIT_CHANGER;
+            }
+            break;
+        case VIEW_HELP:
+            if(input_event->key == InputKeyBack || input_event->key == InputKeyOk) {
+                app->current_view = app->help_return_view;
             }
             break;
             
         case VIEW_SLOT_LIST:
-            if(input_event->key == InputKeyUp) {
-                if(app->selected_index > 0) {
-                    app->selected_index--;
-                    // Auto-scroll
-                    if(app->selected_index < app->scroll_offset) {
-                        app->scroll_offset = app->selected_index;
+            if(input_event->key == InputKeyRight) {
+                app->help_return_view = VIEW_SLOT_LIST;
+                app->current_view = VIEW_HELP;
+            } else if(input_event->key == InputKeyUp) {
+                if(is_long_press) {
+                    // Long press Up: skip back by 10
+                    app->selected_index -= 10;
+                    if(app->selected_index < 0) {
+                        app->selected_index = app->total_slots - 1;  // Wrap to last
                     }
+                } else {
+                    // Wrap: at slot 1, Up goes to last slot
+                    if(app->selected_index <= 0) {
+                        app->selected_index = app->total_slots - 1;
+                    } else {
+                        app->selected_index--;
+                    }
+                }
+                // Keep selected slot visible (scroll when needed, including wrap)
+                if(app->selected_index < app->scroll_offset) {
+                    app->scroll_offset = app->selected_index;
+                } else if(app->selected_index >= app->scroll_offset + 5) {
+                    app->scroll_offset = app->selected_index - 4;
                 }
             } else if(input_event->key == InputKeyDown) {
-                if(app->selected_index < app->total_slots - 1) {
-                    app->selected_index++;
-                    // Auto-scroll
-                    if(app->selected_index >= app->scroll_offset + 4) {
-                        app->scroll_offset = app->selected_index - 3;
+                if(is_long_press) {
+                    // Long press Down: skip forward by 10
+                    app->selected_index += 10;
+                    if(app->selected_index >= app->total_slots) {
+                        app->selected_index = 0;  // Wrap to first
+                    }
+                } else {
+                    // Wrap: at last slot, Down goes to first
+                    if(app->selected_index >= app->total_slots - 1) {
+                        app->selected_index = 0;
+                    } else {
+                        app->selected_index++;
                     }
                 }
+                // Keep selected slot visible (scroll when needed, including wrap)
+                if(app->selected_index >= app->scroll_offset + 5) {
+                    app->scroll_offset = app->selected_index - 4;
+                } else if(app->selected_index < app->scroll_offset) {
+                    app->scroll_offset = app->selected_index;
+                }
             } else if(input_event->key == InputKeyOk) {
-                // Update cache before viewing
                 flipchanger_update_cache(app, app->selected_index);
                 flipchanger_show_slot_details(app, app->selected_index);
             } else if(input_event->key == InputKeyBack) {
@@ -1366,8 +1957,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             
         case VIEW_SLOT_DETAILS: {
             Slot* slot = flipchanger_get_slot(app, app->current_slot_index);
-            if(input_event->key == InputKeyOk) {
-                // If empty, go to add. If occupied, go to edit
+            if(input_event->key == InputKeyRight) {
+                app->help_return_view = VIEW_SLOT_DETAILS;
+                app->current_view = VIEW_HELP;
+            } else if(input_event->key == InputKeyOk) {
                 if(!slot || !slot->occupied) {
                     flipchanger_show_add_edit(app, app->current_slot_index, true);
                 } else {
@@ -2004,26 +2597,25 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
             if(app->editing_slot_count) {
                 // Editing slot count - use UP/DOWN to change value
                 if(input_event->key == InputKeyUp) {
-                    // Increment slot count
                     app->total_slots += 1;
-                    if(app->total_slots > MAX_SLOTS) {
-                        app->total_slots = MAX_SLOTS;
+                    if(app->total_slots > MAX_SLOTS) app->total_slots = MAX_SLOTS;
+                    if(app->current_changer_index >= 0 && app->current_changer_index < app->changer_count) {
+                        app->changers[app->current_changer_index].total_slots = app->total_slots;
                     }
                     app->dirty = true;
                 } else if(input_event->key == InputKeyDown) {
-                    // Decrement slot count
                     app->total_slots -= 1;
-                    if(app->total_slots < MIN_SLOTS) {
-                        app->total_slots = MIN_SLOTS;
+                    if(app->total_slots < MIN_SLOTS) app->total_slots = MIN_SLOTS;
+                    if(app->current_changer_index >= 0 && app->current_changer_index < app->changer_count) {
+                        app->changers[app->current_changer_index].total_slots = app->total_slots;
                     }
                     app->dirty = true;
                 } else if(input_event->key == InputKeyBack) {
                     if(is_long_press) {
-                        // Long press - save and exit
                         if(app->dirty && app->storage) {
-                            // Reinitialize slots with new count
                             flipchanger_init_slots(app, app->total_slots);
                             flipchanger_save_data(app);
+                            flipchanger_save_changers(app);
                             app->dirty = false;
                         }
                         app->editing_slot_count = false;
@@ -2035,8 +2627,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
                 }
             } else {
                 // Settings menu navigation
-                if(input_event->key == InputKeyOk) {
-                    // Start editing slot count
+                if(input_event->key == InputKeyRight) {
+                    app->help_return_view = VIEW_SETTINGS;
+                    app->current_view = VIEW_HELP;
+                } else if(input_event->key == InputKeyOk) {
                     app->editing_slot_count = true;
                     app->edit_slot_count_pos = 0;
                 } else if(input_event->key == InputKeyBack) {
@@ -2052,7 +2646,10 @@ void flipchanger_input_callback(InputEvent* input_event, void* ctx) {
         }
         
         case VIEW_STATISTICS: {
-            if(input_event->key == InputKeyBack) {
+            if(input_event->key == InputKeyRight) {
+                app->help_return_view = VIEW_STATISTICS;
+                app->current_view = VIEW_HELP;
+            } else if(input_event->key == InputKeyBack) {
                 if(is_long_press) {
                     app->running = false;
                     return;
@@ -2096,18 +2693,39 @@ int32_t flipchanger_main(void* p) {
     // Attach view port to GUI
     gui_add_view_port(app->gui, app->view_port, GuiLayerFullscreen);
     
-    // Load data
+    app->current_view = VIEW_SPLASH;
+    app->splash_start_tick = furi_get_tick();
+    
+    flipchanger_load_changers(app);
+    if(app->changer_count == 0) {
+        Changer* c = &app->changers[0];
+        strncpy(c->id, "changer_0", CHANGER_ID_LEN - 1);
+        strncpy(c->name, "Default", CHANGER_NAME_LEN - 1);
+        c->location[0] = '\0';
+        c->total_slots = DEFAULT_SLOTS;
+        app->changer_count = 1;
+        app->current_changer_index = 0;
+        strncpy(app->current_changer_id, "changer_0", CHANGER_ID_LEN - 1);
+        app->current_changer_id[CHANGER_ID_LEN - 1] = '\0';
+        flipchanger_save_changers(app);
+    }
+    
     flipchanger_load_data(app);
-    
-    // Send notification that app started
     notification_message(app->notifications, &sequence_blink_green_100);
-    
-    // Start with main menu
-    flipchanger_show_main_menu(app);
     view_port_update(app->view_port);
     
-    // Main event loop
     while(app->running) {
+        if(app->current_view == VIEW_SPLASH) {
+            if(furi_get_tick() - app->splash_start_tick >= 1200) {
+                flipchanger_show_main_menu(app);
+                view_port_update(app->view_port);
+            }
+        } else if(app->pending_changer_switch) {
+            app->pending_changer_switch = false;
+            flipchanger_load_data(app);
+            flipchanger_save_changers(app);
+            view_port_update(app->view_port);
+        }
         furi_delay_ms(100);
     }
     
@@ -2130,6 +2748,9 @@ int32_t flipchanger_main(void* p) {
     // 4. Save data NOW (view port removed, but storage/GUI still valid)
     if(app->dirty && app->storage) {
         flipchanger_save_data(app);
+    }
+    if(app->storage) {
+        flipchanger_save_changers(app);
     }
     
     // 5. Free view port
@@ -2171,11 +2792,10 @@ void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app) {
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
     
-    // Title
-    canvas_draw_str(canvas, 30, 10, "Settings");
+    canvas_draw_str(canvas, 35, 8, "Settings");
     
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 22;
+    int32_t y = 20;
     
     // Slot Count setting
     canvas_draw_str(canvas, 5, y, "Slot Count:");
@@ -2205,22 +2825,12 @@ void flipchanger_draw_settings(Canvas* canvas, FlipChangerApp* app) {
         canvas_draw_str(canvas, 5, y + 10, "U/D:Num K:Add");
     }
     
-    // Range hint
-    y += 12;
+    // Range hint - use remaining space
+    y += 14;
     canvas_set_font(canvas, FontKeyboard);
     char range_str[32];
     snprintf(range_str, sizeof(range_str), "Range: %d-%d", MIN_SLOTS, MAX_SLOTS);
     canvas_draw_str(canvas, 5, y, range_str);
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    if(app->editing_slot_count) {
-        canvas_draw_str(canvas, 5, 57, "U/D:Num K:Add B:Del");
-        canvas_draw_str(canvas, 5, 63, "LB:Save & Exit");
-    } else {
-        canvas_draw_str(canvas, 5, 57, "K:Edit Slot Count");
-        canvas_draw_str(canvas, 5, 63, "B:Return LB:Exit");
-    }
 }
 
 // Calculate statistics from JSON file (simplified, safe version)
@@ -2275,8 +2885,7 @@ void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app) {
     canvas_clear(canvas);
     canvas_set_font(canvas, FontPrimary);
     
-    // Title
-    canvas_draw_str(canvas, 20, 10, "Statistics");
+    canvas_draw_str(canvas, 30, 8, "Statistics");
     
     // Calculate statistics (safe version - uses cached slots only)
     int32_t total_albums = 0;
@@ -2294,7 +2903,7 @@ void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app) {
     int32_t seconds = total_seconds % 60;
     
     canvas_set_font(canvas, FontSecondary);
-    int32_t y = 22;
+    int32_t y = 20;
     
     // Total Albums
     char albums_str[32];
@@ -2318,9 +2927,4 @@ void flipchanger_draw_statistics(Canvas* canvas, FlipChangerApp* app) {
         snprintf(time_str, sizeof(time_str), "Time: %lds", (long)seconds);
     }
     canvas_draw_str(canvas, 5, y, time_str);
-    
-    // Footer - two lines with abbreviations
-    canvas_set_font(canvas, FontKeyboard);
-    canvas_draw_str(canvas, 5, 57, "B:Return");
-    canvas_draw_str(canvas, 5, 63, "LB:Exit");
 }
